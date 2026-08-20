@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="560" viewBox="0 0 1200 560"
+     role="img" aria-labelledby="mb-title mb-desc">
+  <title id="mb-title">显存预算与上下文档位（RTX 3090 24GB）</title>
+  <desc id="mb-desc">上半部：默认 96K 上下文配置下显存分布堆叠条，Q4_K_XL 权重 17.6GB、MTP 草稿头 1.68GB、KV cache 加 CUDA 开销约 4.0GB，合计约 23.3GB / 24GB。下半部：32K / 64K / 96K / 128K 四档上下文的加载后显存占用实测柱状条，128K 档余量约 377 MiB，标记高风险。</desc>
+
+  <defs>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="560" rx="24" fill="#0C0E12"/>
+
+  <!-- header -->
+  <rect x="56" y="56" width="8" height="8" rx="2" fill="#46C486"/>
+  <text x="74" y="65" class="mono" font-size="18" letter-spacing="0.12em" fill="#8A919C">VRAM BUDGET · 显存预算</text>
+  <text x="1144" y="65" class="mono" font-size="16" fill="#8A919C" text-anchor="end">RTX 3090 24GB · 实测数据</text>
+
+  <!-- ============ module 1: default 96K stacked bar ============ -->
+  <g id="default-bar">
+    <text x="56" y="122" class="sans" font-size="20" font-weight="600" fill="#F4F5F7">默认配置（96K ctx）显存分布</text>
+    <text x="1136" y="122" class="mono" font-size="16" fill="#B9BEC6" text-anchor="end">合计 ≈23.3GB / 24GB</text>
+
+    <!-- MTP callout -->
+    <line x1="889" y1="140" x2="889" y2="131" stroke="#46C486"/>
+    <text x="889" y="124" class="mono" font-size="18" fill="#46C486" text-anchor="middle">MTP 1.68GB</text>
+
+    <!-- track -->
+    <rect x="56" y="140" width="1080" height="56" rx="8" fill="#14181E" stroke="#2A3140"/>
+    <!-- weights 17.6GB (45px/GB) -->
+    <rect x="59" y="143" width="792" height="50" rx="4" fill="#3A4B63"/>
+    <!-- MTP 1.68GB -->
+    <rect x="851" y="143" width="76" height="50" rx="4" fill="#46C486"/>
+    <!-- KV + CUDA overhead ≈4.0GB (96K ctx) -->
+    <rect x="927" y="143" width="180" height="50" rx="4" fill="#2A3547"/>
+    <!-- 24GB limit tick -->
+    <line x1="1140" y1="132" x2="1140" y2="204" stroke="#8A919C" stroke-dasharray="4 4"/>
+
+    <text x="80" y="174" class="mono" font-size="20" fill="#F4F5F7">Q4_K_XL 权重 17.6GB</text>
+    <text x="1017" y="216" class="mono" font-size="18" fill="#8A919C" text-anchor="middle">KV + CUDA 开销 ≈4.0GB</text>
+  </g>
+
+  <!-- ============ module 2: context tiers ============ -->
+  <g id="context-tiers">
+    <text x="56" y="276" class="sans" font-size="20" font-weight="600" fill="#F4F5F7">上下文档位实测（2026-08-20）</text>
+    <text x="1144" y="276" class="mono" font-size="16" fill="#8A919C" text-anchor="end">KV cache 随上下文近似线性增长</text>
+
+    <!-- row 32K -->
+    <text x="56" y="316" class="mono" font-size="20" fill="#F4F5F7">32K</text>
+    <rect x="150" y="300" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="300" width="647" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="316" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~1900 MiB · 最稳</text>
+
+    <!-- row 64K -->
+    <text x="56" y="364" class="mono" font-size="20" fill="#F4F5F7">64K</text>
+    <rect x="150" y="348" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="348" width="648" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="364" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~1820 MiB · 余量充足</text>
+
+    <!-- row 96K -->
+    <text x="56" y="412" class="mono" font-size="20" fill="#F4F5F7">96K<tspan font-size="16" fill="#8A919C"> 默认</tspan></text>
+    <rect x="150" y="396" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="396" width="679" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="412" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~728 MiB · 余量偏紧</text>
+
+    <!-- row 128K -->
+    <text x="56" y="460" class="mono" font-size="20" fill="#F4F5F7">128K</text>
+    <rect x="150" y="444" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="444" width="689" height="18" rx="9" fill="#E8A33D"/>
+    <text x="1144" y="460" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E8A33D">●</tspan> 剩余 ~377 MiB · 高风险</text>
+
+    <text x="56" y="508" class="mono" font-size="16" fill="#8A919C">柱长 = 加载后显存占用（满格 = 24576 MiB）</text>
+  </g>
+</svg>

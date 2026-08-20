@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="460" viewBox="0 0 1200 460"
+     role="img" aria-labelledby="cc-title cc-desc">
+  <title id="cc-title">OpenAI 兼容客户端接入（局域网）</title>
+  <desc id="cc-desc">左侧客户端（OpenWebUI / Cherry Studio / DSH / OpenAI SDK 代码）通过 Base URL http://部署机IP:8080/v1 连接右侧 llama-server（监听 0.0.0.0:8080，模型 qwen3.8-27B，API Key 鉴权默认开启）。所有 /v1/* 请求必须携带 Bearer key（sk-…，来自 api_keys.txt），否则返回 401。底部安全提醒：key 是唯一访问凭证，不要分享 key 文件、不要提交 Git；只在可信局域网使用，不要暴露公网。</desc>
+
+  <defs>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="460" rx="24" fill="#0C0E12"/>
+
+  <!-- header -->
+  <rect x="56" y="56" width="8" height="8" rx="2" fill="#46C486"/>
+  <text x="74" y="65" class="mono" font-size="18" letter-spacing="0.12em" fill="#8A919C">OPENAI COMPATIBLE · 客户端接入</text>
+  <text x="1144" y="65" class="mono" font-size="16" fill="#8A919C" text-anchor="end">任意 OpenAI 兼容客户端</text>
+
+  <!-- left: clients -->
+  <g id="clients">
+    <rect x="56" y="110" width="380" height="180" rx="12" fill="#14181E" stroke="#2A3140"/>
+    <text x="76" y="148" class="sans" font-size="22" font-weight="600" fill="#F4F5F7">客户端 · 同一局域网</text>
+
+    <rect x="76" y="176" width="160" height="34" rx="8" fill="#0C0E12" stroke="#2A3140"/>
+    <text x="156" y="198" class="mono" font-size="16" fill="#B9BEC6" text-anchor="middle">OpenWebUI</text>
+    <rect x="248" y="176" width="160" height="34" rx="8" fill="#0C0E12" stroke="#2A3140"/>
+    <text x="328" y="198" class="mono" font-size="16" fill="#B9BEC6" text-anchor="middle">Cherry Studio</text>
+    <rect x="76" y="218" width="160" height="34" rx="8" fill="#0C0E12" stroke="#2A3140"/>
+    <text x="156" y="240" class="mono" font-size="16" fill="#B9BEC6" text-anchor="middle">DSH / Agent 平台</text>
+    <rect x="248" y="218" width="160" height="34" rx="8" fill="#0C0E12" stroke="#2A3140"/>
+    <text x="328" y="240" class="mono" font-size="16" fill="#B9BEC6" text-anchor="middle">OpenAI SDK 代码</text>
+
+    <text x="76" y="276" class="mono" font-size="16" fill="#8A919C">设置 → OpenAI 兼容 → 填 3 项</text>
+  </g>
+
+  <!-- middle: connection -->
+  <g id="connection">
+    <text x="600" y="176" class="mono" font-size="18" fill="#46C486" text-anchor="middle">http://&lt;本机IP&gt;:8080/v1</text>
+    <text x="600" y="200" class="mono" font-size="16" fill="#8A919C" text-anchor="middle">须带 Bearer sk-… · 缺则 401</text>
+    <line x1="436" y1="222" x2="752" y2="222" stroke="#2A3140" stroke-width="2"/>
+    <path d="M764 222 L754 216 L754 228 Z" fill="#2A3140"/>
+  </g>
+
+  <!-- right: server -->
+  <g id="server">
+    <rect x="764" y="110" width="380" height="180" rx="12" fill="#14181E" stroke="#2A3140"/>
+    <text x="784" y="148" class="sans" font-size="22" font-weight="600" fill="#F4F5F7">llama-server · 部署机</text>
+    <circle cx="789" cy="184" r="5" fill="#46C486"/>
+    <text x="802" y="190" class="mono" font-size="18" fill="#46C486">LISTENING 0.0.0.0:8080</text>
+    <text x="784" y="224" class="mono" font-size="16" fill="#B9BEC6">模型 qwen3.8-27B · Q4_K_XL + MTP</text>
+    <text x="784" y="252" class="mono" font-size="16" fill="#B9BEC6">上下文 96K · KV cache q8_0</text>
+    <text x="784" y="278" class="mono" font-size="14" fill="#8A919C">本机测试: curl + Bearer sk-…</text>
+  </g>
+
+  <!-- security band -->
+  <g id="security">
+    <rect x="56" y="320" width="1088" height="92" rx="12" fill="#1E180E" stroke="#E8A33D"/>
+    <path d="M96 340 L76 374 L116 374 Z" fill="none" stroke="#E8A33D" stroke-width="2.5" stroke-linejoin="round"/>
+    <line x1="96" y1="351" x2="96" y2="361" stroke="#E8A33D" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="96" cy="368.5" r="2" fill="#E8A33D"/>
+    <text x="136" y="358" class="sans" font-size="20" font-weight="600" fill="#E8A33D">安全提醒：向整个局域网开放 · API Key 鉴权默认开启</text>
+    <text x="136" y="390" class="sans" font-size="18" fill="#B9BEC6">key 是唯一访问凭证：api_keys.txt 不要分享、不要提交 Git；泄露后删旧 key 重新生成并重启服务。</text>
+  </g>
+</svg>

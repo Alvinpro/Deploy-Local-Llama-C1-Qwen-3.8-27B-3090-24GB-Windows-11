@@ -1,0 +1,25 @@
+{
+  "name": "deploy-local-llama-c1-qwen-3.8-27b-3090-24gb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Qwen3.8-27B 单卡 RTX 3090 一键本地部署（llama.cpp CUDA + MTP 推测解码 + API Key 鉴权）",
+  "scripts": {
+    "deploy": "cmd /c deploy_and_run.bat",
+    "start": "cmd /c start_server.bat",
+    "key:gen": "cmd /c gen_api_key.bat",
+    "upload:github": "powershell -NoProfile -ExecutionPolicy Bypass -File upload_github.ps1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alvinpro/Deploy-Local-Llama-C1-Qwen-3.8-27B-3090-24GB.git"
+  },
+  "author": "Alvinpro",
+  "license": "MIT",
+  "keywords": [
+    "llama.cpp",
+    "qwen",
+    "rtx-3090",
+    "local-llm",
+    "openai-compatible"
+  ]
+}

@@ -1,0 +1,5 @@
+.workbuddy/
+
+# API key 凭证——绝不上传 GitHub
+api_keys.txt
+release.ps1
