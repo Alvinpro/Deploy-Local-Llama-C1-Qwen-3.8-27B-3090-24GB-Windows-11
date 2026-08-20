@@ -1,8 +1,8 @@
-![Qwen3.8-27B local deployment: one-click on a single RTX 3090](assets/readme/hero.svg?v=20260820154110)
+![Qwen3.8-27B local deployment: one-click on a single RTX 3090](assets/readme/hero.svg?v=20260820163000)
 
-One-click deployment of **Qwen3.8-27B** on a single RTX 3090 (24GB) **on Windows 11**: Q4_K_XL quantization + MTP speculative decoding + 96K context window, exposed as an **OpenAI-compatible** `llama-server`, averaging ~**47 tok/s** with ~**1.5×** lossless MTP speedup.
+One-click deployment of **Qwen3.8-27B** on a single RTX 3090 (24GB) **on Windows 11**: Q4_K_XL quantization + embedded-MTP speculative decoding + 128K context window, exposed as an **OpenAI-compatible** `llama-server`, averaging ~**47 tok/s** with ~**1.4×** measured lossless MTP speedup.
 
-在单张 RTX 3090（24GB）上 **一键部署 Qwen3.8-27B**（**Windows 11 部署实测**）：Q4_K_XL 量化 + MTP 推测解码 + 96K 上下文，以 **OpenAI 兼容** `llama-server` 对外服务，平均 ~**47 tok/s**，MTP 无损提速 ~**1.5×**。
+在单张 RTX 3090（24GB）上 **一键部署 Qwen3.8-27B**（**Windows 11 部署实测**）：Q4_K_XL 量化 + 内嵌 MTP 推测解码 + 128K 上下文，以 **OpenAI 兼容** `llama-server` 对外服务，平均 ~**47 tok/s**，MTP 无损提速 ~**1.4×**（实测）。
 
 ---
 
@@ -27,13 +27,13 @@ One-click deployment of **Qwen3.8-27B** on a single RTX 3090 (24GB) **on Windows
 ```
 llama-3090/
 ├── deploy_and_run.bat      # one-click entry: double-click to deploy + launch (downloads on first run, skips afterward) / 一键入口：双击即部署+启动（首次下载，之后跳过）
-├── qwen38_deploy.ps1       # actual deploy logic (download + launch) / 实际部署逻辑（下载 + 启动）
+├── deploy_and_run.ps1      # actual deploy logic (download + launch) / 实际部署逻辑（下载 + 启动）
 ├── start_server.bat        # launch only, no download (daily restart once model is ready) / 仅启动，不含下载（模型已就绪时日常复启用）
 ├── gen_api_key.ps1         # sk-* API key generator (main script) / sk-* API key 生成器（主脚本）
 ├── gen_api_key.bat         # double-click entry for key generator / key 生成器双击入口
 ├── api_keys.txt            # API key list (used by llama-server auth, one per line; created by generator) / API key 列表（llama-server 鉴权用，每行一个；用生成器创建）
 ├── Qwen3.8-27B-UD-Q4_K_XL.gguf   # main model ~17.6GB (generated after first download) / 主模型 ~17.6GB（首次下载后生成）
-├── mtp-Qwen3.8-27B-Q4_0.gguf     # MTP draft head ~1.68GB (generated after first download) / MTP 草稿头 ~1.68GB（首次下载后生成）
+├── mtp-Qwen3.8-27B-Q4_0.gguf     # optional standalone MTP head ~1.68GB (NOT needed — the main GGUF already embeds the MTP head; kept only for compatibility) / 独立 MTP 草稿头 ~1.68GB（已不需要——主 GGUF 已内嵌 MTP 头，保留仅兼容旧脚本）
 └── llama.cpp/              # llama.cpp CUDA build (includes llama-server.exe and CUDA runtime DLLs) / llama.cpp CUDA 构建（含 llama-server.exe 与 CUDA 运行时 DLL）
 ```
 
@@ -44,7 +44,7 @@ llama-3090/
 
 ## Quick Start / 快速开始
 
-![One-click deployment flow](assets/readme/deploy-flow.svg?v=20260820154110)
+![One-click deployment flow](assets/readme/deploy-flow.svg?v=20260820163000)
 
 ### First-time Deployment (download + launch) / 首次部署（下载 + 启动）
 
@@ -54,12 +54,12 @@ Double-click `deploy_and_run.bat`; the script will, in order:
 
 1. Download the latest llama.cpp CUDA build (including the cudart runtime DLL) and merge it into `llama.cpp/`;
 2. Download the model GGUF (~17.6GB, resumable);
-3. Download the MTP draft head;
+3. Download the MTP draft head (optional — the main GGUF already embeds the MTP head, and the launch scripts no longer need the standalone file);
 4. Launch `llama-server`, listening on `0.0.0.0:8080` (reachable on the LAN).
 
 1. 下载最新 llama.cpp CUDA 构建（含 cudart 运行时 DLL）并合并到 `llama.cpp/`；
 2. 下载模型 GGUF（~17.6GB，断点续传）；
-3. 下载 MTP 草稿头；
+3. 下载 MTP 草稿头（可选——主 GGUF 已内嵌 MTP 头，启动脚本已不再需要独立文件）；
 4. 启动 `llama-server`，监听 `0.0.0.0:8080`（局域网可访问）。
 
 > On first launch, if `api_keys.txt` does not yet exist, it will show "no auth" and run normally; after generating a key with `gen_api_key.bat` and restarting, auth is enabled (see "API Key Authentication").
@@ -75,9 +75,9 @@ Use the standalone launch script to skip all download logic:
 直接用独立的启动脚本，跳过所有下载逻辑：
 
 ```
-start_server.bat                 # normal launch (96K context) / 正常启动（96K 上下文）
+start_server.bat                 # normal launch (128K context) / 正常启动（128K 上下文）
 start_server.bat -Vision         # multimodal (swap to a VL model first, see below) / 多模态（需先换 VL 模型，见下文）
-start_server.bat -Ctx 65536      # raise context to 64K (only if VRAM allows) / 改上下文到 64K（显存够才用）
+start_server.bat -Ctx 65536      # lower context to 64K (if VRAM is tight) / 改上下文到 64K（显存吃紧时用）
 start_server.bat -Port 8081      # change server port / 改服务端口
 start_server.bat -ApiKeyFile C:\path\keys.txt   # use another key file (default api_keys.txt) / 换用其他 key 文件（默认 api_keys.txt）
 ```
@@ -92,7 +92,7 @@ start_server.bat -ApiKeyFile C:\path\keys.txt   # use another key file (default 
 | Script / 脚本 | Purpose / 用途 | Includes download? / 是否含下载 |
 |------|------|-----------|
 | `deploy_and_run.bat` | one-click deploy entry, double-click; passes args through (`%*`) / 一键部署入口，双击用；参数透传（`%*`） | Yes / 是 |
-| `qwen38_deploy.ps1` | core deploy logic: fetch build / model / MTP head and launch / 部署核心逻辑：拉取构建/模型/MTP 头并启动 | Yes / 是 |
+| `deploy_and_run.ps1` | core deploy logic: fetch build / model / MTP head and launch / 部署核心逻辑：拉取构建/模型/MTP 头并启动 | Yes / 是 |
 | `start_server.bat` | launch service only, recursively locate exe, with all tuning params / 仅拉起服务，递归定位 exe、带全部调优参数 | No / 否 |
 
 ---
@@ -106,15 +106,14 @@ The actual server command line (`reasoning_effort` is passed via an environment 
 ```
 llama.cpp\llama-server.exe
   -m Qwen3.8-27B-UD-Q4_K_XL.gguf
-  --alias qwen3.8-27b
-  -c 98304
+  --alias qwen3.8-27B
+  -c 131072
   --parallel 1
   -ngl 99
   -fa on
   --cache-type-k q8_0
   --cache-type-v q8_0
-  --spec-type draft-mtp
-  --spec-draft-model mtp-Qwen3.8-27B-Q4_0.gguf
+  --spec-type draft-mtp            # MTP head is embedded in the main GGUF / MTP 头内嵌于主 GGUF
   --api-key-file api_keys.txt        # auto-appended when api_keys.txt exists / 存在 api_keys.txt 时自动附加
   --host 0.0.0.0
   --port 8080
@@ -126,14 +125,13 @@ LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"high"}
 | Param / 参数 | Value / 值 | Purpose / 作用 |
 |------|-----|------|
 | `-m` | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | main model (27B, Q4_K_XL, ~17.6GB) / 主模型（27B，Q4_K_XL，~17.6GB） |
-| `--alias` | `qwen3.8-27b` | model short name (clients use this, not the long filename) / 模型短名（客户端填这个，不是长文件名） |
-| `-c` | `98304` | context window upper bound 96K (loadable on 24GB in practice, tight headroom; independent of `reasoning_effort` tier) / 上下文窗口上限 96K（24GB 实测可加载，余量偏紧；与 `reasoning_effort` 档位无关） |
+| `--alias` | `qwen3.8-27B` | model short name (clients use this, not the long filename) / 模型短名（客户端填这个，不是长文件名） |
+| `-c` | `131072` | context window upper bound 128K (the ceiling on 24GB with embedded MTP head, ~700MB headroom; independent of `reasoning_effort` tier) / 上下文窗口上限 128K（24GB + 内嵌 MTP 头的天花板，余量 ~700MB；与 `reasoning_effort` 档位无关） |
 | `--parallel` | `1` | single concurrent session (VRAM only fits one) / 单并发（显存只够一个会话） |
 | `-ngl` | `99` | offload all layers to GPU (avoid falling back to CPU) / 全量层 offload 到 GPU（避免掉回 CPU） |
 | `-fa` | `on` | enable Flash Attention / 开启 Flash Attention |
 | `--cache-type-k/v` | `q8_0` | KV cache quantization, saves VRAM and is faster / KV cache 量化，省显存且更快 |
-| `--spec-type` | `draft-mtp` | MTP speculative decoding (~1.5× speedup, lossless) / MTP 推测解码（约 1.5× 提速，无损） |
-| `--spec-draft-model` | `mtp-Qwen3.8-27B-Q4_0.gguf` | MTP draft model / MTP 草稿模型 |
+| `--spec-type` | `draft-mtp` | MTP speculative decoding using the MTP head **embedded in the main GGUF** (~1.4× measured speedup, lossless; no standalone draft file) / MTP 推测解码，使用主 GGUF **内嵌的 MTP 头**（实测 ~1.4× 提速，无损；无需独立草稿文件） |
 | `--api-key-file` | `api_keys.txt` | auth key file (one per line, `#` = comment); omitted automatically with a warning if the file is missing / 鉴权 key 文件（每行一个，`#` 注释）；文件不存在时自动省略并告警 |
 | `--host/--port` | `0.0.0.0:8080` | listen on all interfaces at 8080 (OpenAI-compatible API, reachable on LAN) / 监听所有网卡 8080（OpenAI 兼容 API，局域网可访问） |
 
@@ -141,15 +139,15 @@ LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"high"}
 
 ## Configurable Options / 可配置项
 
-Edit the top of `qwen38_deploy.ps1` (the top variables of `start_server.bat` work the same way):
+Edit the top of `deploy_and_run.ps1` (the top variables of `start_server.bat` work the same way):
 
-编辑 `qwen38_deploy.ps1` 顶部（`start_server.bat` 顶部变量同理）：
+编辑 `deploy_and_run.ps1` 顶部（`start_server.bat` 顶部变量同理）：
 
 | Variable / 变量 | Default / 默认值 | Description / 说明 |
 |------|--------|------|
 | `$MODEL_FILE` | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | main model filename / 主模型文件名 |
-| `$MTP_FILE` | `mtp-Qwen3.8-27B-Q4_0.gguf` | MTP draft head / MTP 草稿头 |
-| `$CTX_SIZE` | `98304` | context window upper bound (default 96K, loadable on 24GB in practice, tight headroom); can be set to `65536`/`131072`, but 96K+MTP is ~23.6GB, near the limit — lower it if OOM (high tier uses more reasoning tokens, be conservative with large context) / 上下文窗口上限（默认 96K，24GB 实测可加载、余量偏紧）；可改 `65536`/`131072`，但 96K+MTP 时约 23.6GB 接近上限，OOM 就调小（high 档推理 token 更占预算，上大上下文更需保守） |
+| `$MTP_FILE` | `mtp-Qwen3.8-27B-Q4_0.gguf` | standalone MTP head — no longer used by `start_server.bat` (the main GGUF embeds the MTP head); kept only for compatibility / 独立 MTP 草稿头——`start_server.bat` 已不再使用（主 GGUF 内嵌 MTP 头），仅保留兼容 |
+| `$CTX_SIZE` | `131072` | context window upper bound (default 128K, the ceiling on 24GB with embedded MTP head, ~700MB headroom); lower to `98304`/`65536` if VRAM is tight; `163840`/`196608` measured **unusable** on 24GB / 上下文窗口上限（默认 128K，24GB + 内嵌 MTP 头的天花板，余量 ~700MB）；显存吃紧降到 `98304`/`65536`；160K/192K 在 24GB 上实测**不可用** |
 | `$REASONING` | `high` | `low`/`medium`/`high`/`xhigh`; default was xhigh which over-thinks / `low`/`medium`/`high`/`xhigh`；默认 xhigh 会过度思考 |
 | `$PORT` | `8080` | server port / 服务端口 |
 | `$API_KEY` | `""` (empty) | single inline key (`--api-key`); plaintext appears in script / process command line, local debugging only — use `$API_KEY_FILE` for daily use / 单个内联 key（`--api-key`）；明文会出现在脚本/进程命令行，仅本地调试用，日常用 `$API_KEY_FILE` |
@@ -164,35 +162,40 @@ Edit the top of `qwen38_deploy.ps1` (the top variables of `start_server.bat` wor
 
 ## Maximum Context (context window upper bound) / 最长上下文（上下文窗口上限）
 
-![VRAM budget & context tiers (RTX 3090 24GB)](assets/readme/memory-budget.svg?v=20260820154110)
+![VRAM budget & context tiers (RTX 3090 24GB)](assets/readme/memory-budget.svg?v=20260820163000)
 
-- **The current default context is 98304 tokens (96K)**, set by the launch flag `-c 98304`, and is **independent of the `reasoning_effort` tier** — none of the `low/medium/high/xhigh` tiers change the context ceiling; the high tier only changes the length of the reasoning chain (`reasoning_content`), not the context upper bound.
-- **当前默认上下文为 98304 tokens（96K）**，由启动参数 `-c 98304` 决定，**与 `reasoning_effort` 档位无关**——`low/medium/high/xhigh` 四档都不会改变上下文天花板；high 档改变的只是推理链（`reasoning_content`）的长度，不是上下文上限。
-- Evidence from measurement: startup log `n_ctx_slot = 98304`, and `/v1/models` returns `context_length = 98304`.
-- 实测佐证：启动日志 `n_ctx_slot = 98304`，`/v1/models` 返回 `context_length = 98304`。
-- ⚠️ **Note**: the high tier generates a longer reasoning chain, and these reasoning tokens **count within the 96K total budget**. So under the same total window, the high tier leaves slightly less room for actual conversation history than the low tier — but the **ceiling is always 98304**, and does not change with the tier.
-- ⚠️ **注意**：high 档会生成更长的推理链，这部分 reasoning token **计入 96K 总预算内**。所以同样的总窗口下，high 档留给实际对话历史的空间比 low 档相对少一点——但**上限始终是 98304**，不随档位变化。
+- **The current default context is 131072 tokens (128K)**, set by the launch flag `-c 131072`, and is **independent of the `reasoning_effort` tier** — none of the `low/medium/high/xhigh` tiers change the context ceiling; the high tier only changes the length of the reasoning chain (`reasoning_content`), not the context upper bound.
+- **当前默认上下文为 131072 tokens（128K）**，由启动参数 `-c 131072` 决定，**与 `reasoning_effort` 档位无关**——`low/medium/high/xhigh` 四档都不会改变上下文天花板；high 档改变的只是推理链（`reasoning_content`）的长度，不是上下文上限。
+- Evidence from measurement: startup log `n_ctx_slot = 131072`, and `/v1/models` returns `context_length = 131072`.
+- 实测佐证：启动日志 `n_ctx_slot = 131072`，`/v1/models` 返回 `context_length = 131072`。
+- ⚠️ **Note**: the high tier generates a longer reasoning chain, and these reasoning tokens **count within the 128K total budget**. So under the same total window, the high tier leaves slightly less room for actual conversation history than the low tier — but the **ceiling is always 131072**, and does not change with the tier.
+- ⚠️ **注意**：high 档会生成更长的推理链，这部分 reasoning token **计入 128K 总预算内**。所以同样的总窗口下，high 档留给实际对话历史的空间比 low 档相对少一点——但**上限始终是 131072**，不随档位变化。
 
 ### Want larger / smaller context? / 想调大 / 调小上下文？
 
-Change `$CTX_SIZE` (the top variable in both scripts) to `65536` / `98304` (current default) / `131072` and re-run; KV cache grows roughly linearly with context and uses more VRAM. If VRAM is tight, lower the default to `65536` or even `32768`.
+Change `$CTX_SIZE` (the top variable in both scripts) to `131072` (current default) / `98304` / `65536` and re-run; KV cache grows roughly linearly with context and uses more VRAM. If VRAM is tight, lower the default to `98304` or even `65536`. Contexts above 128K (`163840`/`196608`) are measured **unusable** on 24GB — they load but crash during generation.
 
-改 `$CTX_SIZE`（两脚本顶部变量）为 `65536` / `98304`（当前默认）/ `131072`，重跑即可；KV cache 随上下文近似线性增长，更吃显存。显存吃紧就把默认调小到 `65536` 甚至 `32768`。
+改 `$CTX_SIZE`（两脚本顶部变量）为 `131072`（当前默认）/ `98304` / `65536`，重跑即可；KV cache 随上下文近似线性增长，更吃显存。显存吃紧就把默认调小到 `98304` 甚至 `65536`。**超过 128K（160K/192K）在 24GB 上实测不可用**——能加载但生成即崩。
 
 #### Four-tier measured usability (2026-08-20, current config: Q4_K_XL + MTP + high + ngl99 + fa on + cache q8_0) / 四档实测可用性（2026-08-20，当前配置：Q4_K_XL + MTP + high + ngl99 + fa on + cache q8_0）
 
-> Test method: launch llama-server with `-c 32768 / 65536 / 98304 / 131072` in turn, check whether it can listen successfully (KV cache loads without error), and sample VRAM usage after load. In practice, specify via `start_server.bat -Ctx 65536`, etc.
-> 测试方式：依次以 `-c 32768 / 65536 / 98304 / 131072` 启动 llama-server，判定能否成功监听（加载 KV cache 不报错），并采样加载后显存占用。实际使用以 `start_server.bat -Ctx 65536` 等方式指定。
+> Test method: launch llama-server with `-c 32768 / 65536 / 98304 / 131072 / 163840 / 196608` in turn, check whether it can listen successfully (KV cache loads without error), and sample VRAM usage after load. In practice, specify via `start_server.bat -Ctx 98304`, etc.
+> 测试方式：依次以 `-c 32768 / 65536 / 98304 / 131072 / 163840 / 196608` 启动 llama-server，判定能否成功监听（加载 KV cache 不报错），并采样加载后显存占用。实际使用以 `start_server.bat -Ctx 98304` 等方式指定。
 
 | Context / 上下文 | `-c` | VRAM after load / 加载后显存占用 | 24GB remaining / 24GB 剩余 | Result / 结论 |
 |--------|------|--------------|-----------|------|
-| 32K | `32768` | ~22700 MiB | ~1900 MiB | ✅ usable, most stable, ample headroom / ✅ 可用，最稳，余量充足 |
-| 64K | `65536` | 22756 MiB | ~1820 MiB | ✅ usable, ample headroom / ✅ 可用，余量充足 |
-| 96K (default) / 96K（默认） | `98304` | 23848 MiB | ~728 MiB | ✅ usable, tight headroom / ✅ 可用，余量偏紧 |
-| 128K | `131072` | 24199 MiB | ~377 MiB | ⚠️ loadable, but only ~377MB headroom — high risk in production / ⚠️ 可加载，但余量仅 ~377MB，实战高风险 |
+| 32K | `32768` | ~22700 MiB | ~1900 MiB | ✅ usable, most stable / ✅ 可用，最稳 |
+| 64K | `65536` | 22756 MiB | ~1820 MiB | ✅ usable / ✅ 可用 |
+| 96K | `98304` | 23848 MiB | ~728 MiB | ✅ usable, tight headroom / ✅ 可用，余量偏紧 |
+| 128K (default) / 128K（默认） | `131072` | 24199 MiB¹ | ~377 MiB¹ | ⚠️ loadable, tight headroom — the 24GB ceiling / ⚠️ 可加载，余量紧——24GB 天花板 |
+| 160K | `163840` | 24186 MiB | ~390 MiB | ❌ loads but prefill collapses (138 vs ~1060 tok/s) and OOMs in production / ❌ 能加载但 prefill 暴跌、实战必 OOM |
+| 192K | `196608` | ~24200 MiB | ~0 MiB | ❌ loads then crashes on the first request / ❌ 加载后首轮请求即崩溃 |
 
-- Under the current config, **measurement shows it can load up to 128K** (KV cache allocation passes, can listen), but 128K leaves only ~377MB — Flash Attention activation peaks / long-prompt inference easily trigger transient OOM, so it is only recommended for stress tests or short-output scenarios; **the default is 96K (headroom ~728MB, tight, watch out for long high-tier reasoning)**; if you want more stability and looser VRAM, set `$CTX_SIZE` back to `65536` or `32768`.
-- **结论**：在当前配置下，**实测最大可加载到 128K**（KV cache 分配通过、能监听），但 128K 仅剩 ~377MB 余量，Flash Attention 激活值峰值 / 长 prompt 推理极易触发瞬时 OOM，仅建议压测或短输出场景尝试；**默认即 96K（余量 ~728MB，余量偏紧，high 档长推理需留意）**；若想更稳、显存更宽松，可把 `$CTX_SIZE` 调回 `65536` 或 `32768`。
+> ¹ Historical numbers measured with the standalone MTP draft file. With the current **embedded MTP head** (default), VRAM drops by ~0.9GB across the board — e.g. 128K ≈ 23.3GB, ~700MB headroom.
+> ¹ 历史数据（独立 MTP 文件时期）。当前**内嵌 MTP 头**（默认）整体少占 ~0.9GB——如 128K 约 23.3GB，余量 ~700MB。
+
+- Under the current config, **128K is the measured ceiling on 24GB** (KV cache allocation passes, can listen; with the embedded head ~700MB headroom). 160K/192K can also *load* but are **unusable**: 160K leaves only ~390MB — prefill speed collapses (138 vs ~1060 tok/s) and production OOM is near-certain; 192K crashes on its first request. Flash Attention activation peaks / long-prompt inference easily trigger transient OOM at the ceiling, so 128K is only recommended when you really need the room; if you want more stability and looser VRAM, set `$CTX_SIZE` back to `98304` or `65536`.
+- **结论**：在当前配置下，**128K 是 24GB 的实测天花板**（KV cache 分配通过、能监听；内嵌头余量 ~700MB）。160K/192K 虽能加载但**不可用**：160K 仅剩 ~390MB，prefill 速度暴跌（138 vs 正常 ~1060 tok/s），实战几乎必 OOM；192K 首轮请求即崩溃。天花板附近 Flash Attention 激活峰值 / 长 prompt 推理极易触发瞬时 OOM，128K 仅建议确实需要大窗口时使用；若想更稳、显存更宽松，可把 `$CTX_SIZE` 调回 `98304` 或 `65536`。
 - ⚠️ The table above shows usage at the "model load + KV allocation" stage, **excluding the activation peak during actual generation**. The high tier produces more reasoning tokens and uses more budget, so be conservative with large contexts; if OOM actually happens, lower it.
 - ⚠️ 上表是「模型加载 + KV 分配」阶段的占用，**不含实际生成时的激活峰值**。high 档推理 token 更多、更占预算，上大上下文时务必保守，真 OOM 就往回调小。
 
@@ -238,10 +241,10 @@ Two ways to enable (choose one):
 
 开启方式（二选一）：
 
-- Edit `qwen38_deploy.ps1` and change `$ENABLE_VISION = $false` to `$true`;
+- Edit `deploy_and_run.ps1` and change `$ENABLE_VISION = $false` to `$true`;
 - Or command line: `deploy_and_run.bat -Vision` / `start_server.bat -Vision`.
 
-- 编辑 `qwen38_deploy.ps1`，把 `$ENABLE_VISION = $false` 改为 `$true`；
+- 编辑 `deploy_and_run.ps1`，把 `$ENABLE_VISION = $false` 改为 `$true`；
 - 或命令行：`deploy_and_run.bat -Vision` / `start_server.bat -Vision`。
 
 After enabling, it auto-downloads the vision projector file `mmproj-F16.gguf` and appends the `--mmproj` flag.
@@ -269,9 +272,9 @@ The script has built-in proxy support, defaulting to `http://127.0.0.1:10808`:
 - GitHub API 显式传 `-Proxy`；
 - `curl` 下载走 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量（断点续传 `--retry 3`）。
 
-To change or disable it, edit `$PROXY` in `qwen38_deploy.ps1`:
+To change or disable it, edit `$PROXY` in `deploy_and_run.ps1`:
 
-如需修改或关闭，编辑 `qwen38_deploy.ps1` 的 `$PROXY`：
+如需修改或关闭，编辑 `deploy_and_run.ps1` 的 `$PROXY`：
 
 ```powershell
 $PROXY = "http://127.0.0.1:10808"   # set to "" to disable / 设为 "" 可禁用
@@ -373,7 +376,7 @@ flowchart LR
     B -- loads --> C[Qwen3.8-27B model]
 ```
 
-![OpenAI-compatible client access (LAN)](assets/readme/client-connect.svg?v=20260820154110)
+![OpenAI-compatible client access (LAN)](assets/readme/client-connect.svg?v=20260820163000)
 
 ### Just 3 steps / 只需 3 步
 
@@ -395,9 +398,9 @@ On the host, open PowerShell / cmd, run `ipconfig`, find "IPv4 Address", e.g. `1
 |--------|--------|------|
 | Base URL / API 地址 | `http://192.168.1.100:8080/v1` | service address, must end with `/v1` / 服务地址，结尾必须带 `/v1` |
 | API Key | any one from `api_keys.txt` (like `sk-...`) / `api_keys.txt` 里任意一个（形如 `sk-...`） | server validates it; wrong/empty returns 401 / 服务端会校验；填错 / 不填返回 401 |
-| Model name / Model 名称 | `qwen3.8-27b` | short name (set by script `--alias`), not the long filename / 短名（脚本 `--alias` 指定），不再是长文件名 |
-| Context Window | `98304` (matches server `-c`) / `98304`（与服务端 `-c` 一致） | total context budget (input + output). Fill the server's actual `-c` (see `$CTX_SIZE` in `start_server.bat`); **if left blank, clients like DSH won't proactively compact history**, and over-long requests get rejected by the server / 模型总上下文预算（输入 + 输出）。填服务端实际的 `-c` 值（见 `start_server.bat` 的 `$CTX_SIZE`）；**不填/留空时，DSH 等客户端不会主动压缩历史**，请求堆太长会被服务端直接拒绝 |
-| Input / Output tokens | Output `16384`; Input = Context Window − output reserve (e.g. `81920`) / Output `16384`；Input = Context Window − 输出预留（如 `81920`） | Output is the per-reply cap (`max_tokens`, reasoning chain also counts as output); worst case "input + output" must be less than server `-c`, otherwise rejected for overflow / Output 是单次回复上限（`max_tokens`，思考链也计入输出）；最坏情况「输入 + 输出」必须小于服务端 `-c`，否则溢出被拒 |
+| Model name / Model 名称 | `qwen3.8-27B` | short name (set by script `--alias`), not the long filename / 短名（脚本 `--alias` 指定），不再是长文件名 |
+| Context Window | `131072` (matches server `-c`) / `131072`（与服务端 `-c` 一致） | total context budget (input + output). Fill the server's actual `-c` (see `$CTX_SIZE` in `start_server.bat`); **if left blank, clients like DSH won't proactively compact history**, and over-long requests get rejected by the server / 模型总上下文预算（输入 + 输出）。填服务端实际的 `-c` 值（见 `start_server.bat` 的 `$CTX_SIZE`）；**不填/留空时，DSH 等客户端不会主动压缩历史**，请求堆太长会被服务端直接拒绝 |
+| Input / Output tokens | Output `16384`; Input = Context Window − output reserve (e.g. `114688`) / Output `16384`；Input = Context Window − 输出预留（如 `114688`） | Output is the per-reply cap (`max_tokens`, reasoning chain also counts as output); worst case "input + output" must be less than server `-c`, otherwise rejected for overflow / Output 是单次回复上限（`max_tokens`，思考链也计入输出）；最坏情况「输入 + 输出」必须小于服务端 `-c`，否则溢出被拒 |
 
 Save and you can chat. A response with `reasoning_content` means the reasoning chain (reasoning_effort) is in effect. If the tool only has the 3 basic items and no Context Window / Input/Output fields, just fill the 3; but Agent frameworks (like DSH) must declare the context window for long conversations — see the DSH section below.
 
@@ -425,9 +428,9 @@ Save and you can chat. A response with `reasoning_content` means the reasoning c
 
 ### DSH (DeepSeek Harness) client: context compaction config / DSH（DeepSeek Harness）客户端：上下文压缩配置
 
-DSH (`@deepseek-ai/dsh`) is a commonly used Agent framework for this service. It computes the compaction water level based on the "context window declared by the model": if the model entry **does not declare `contextWindow`, DSH never compacts proactively**, and history will pile requests beyond the server's `-c` and get rejected (error like `request (106948 tokens) exceeds the available context size (98304 tokens)`).
+DSH (`@deepseek-ai/dsh`) is a commonly used Agent framework for this service. It computes the compaction water level based on the "context window declared by the model": if the model entry **does not declare `contextWindow`, DSH never compacts proactively**, and history will pile requests beyond the server's `-c` and get rejected (error like `request (106948 tokens) exceeds the available context size (131072 tokens)`).
 
-DSH（`@deepseek-ai/dsh`）是本服务常用的 Agent 框架。它按「模型声明的上下文窗口」计算压缩水位：如果模型条目**没声明 `contextWindow`，DSH 永不主动压缩**，历史会把请求堆到超过服务端 `-c` 而被拒（报错形如 `request (106948 tokens) exceeds the available context size (98304 tokens)`）。
+DSH（`@deepseek-ai/dsh`）是本服务常用的 Agent 框架。它按「模型声明的上下文窗口」计算压缩水位：如果模型条目**没声明 `contextWindow`，DSH 永不主动压缩**，历史会把请求堆到超过服务端 `-c` 而被拒（报错形如 `request (106948 tokens) exceeds the available context size (131072 tokens)`）。
 
 **Config location (two files; restart `dsh web` after changes to take effect):** / **配置位置（两个文件，改完重启 `dsh web` 生效）：**
 
@@ -445,19 +448,19 @@ local-llama:
   api: openai-completions
   baseURL: "http://<host IP>:8080/v1"
   models:
-    - id: qwen3.8-27b
-      name: qwen3.8-27b-llama
-      contextWindow: 98304   # must be ≤ server -c; leave ~10~15% headroom / 必须 ≤ 服务端 -c，建议留 10~15% 余量
+    - id: qwen3.8-27B
+      name: qwen3.8-27B-llama
+      contextWindow: 131072  # must be ≤ server -c; leave ~10~15% headroom / 必须 ≤ 服务端 -c，建议留 10~15% 余量
       maxTokens: 16384       # per-reply output cap (incl. reasoning chain), consumes the window; 16384 tested on this box / 单次输出上限（含思考链），会占用窗口；16384 已本机实测可用
 ```
 
 - `contextWindow` = total window budget (input + output); DSH uses it to compute the compaction water level (×`thresholdRatio`) and overflow detection;
 - `maxTokens` = per-reply output cap (maps to API `max_tokens`; the reasoning chain of `reasoning_effort` also counts as output);
-- Worst-case request = compacted-input + `maxTokens`, **must be less than server `-c`**, otherwise it still overflows: `98304 × 0.8 + 16384 ≈ 95K < 96K` ✅ (16384 tested on this box; with `thresholdRatio: 0.7` in effect the real worst case is ≈ 85K, more headroom); if `maxTokens` is raised to 32K it will overflow.
+- Worst-case request = compacted-input + `maxTokens`, **must be less than server `-c`**, otherwise it still overflows: `131072 × 0.8 + 16384 ≈ 121K < 128K` ✅ (16384 tested on this box; with `thresholdRatio: 0.7` in effect the real worst case is ≈ 108K, more headroom); if `maxTokens` is raised to 32K it will overflow.
 
 - `contextWindow` = 总窗口预算（输入 + 输出），DSH 用它算压缩水位（×`thresholdRatio`）和溢出检测；
 - `maxTokens` = 单次回复输出上限（映射 API `max_tokens`，`reasoning_effort` 的思考链也算输出）；
-- 最坏情况请求 = 压缩水位输入 + `maxTokens`，**必须小于服务端 `-c`**，否则照样溢出：`98304 × 0.8 + 16384 ≈ 95K < 96K` ✅（16384 已本机实测可用；`thresholdRatio: 0.7` 生效时实际最坏 ≈ 85K，余量更足）；若 `maxTokens` 调到 32K 则会超。
+- 最坏情况请求 = 压缩水位输入 + `maxTokens`，**必须小于服务端 `-c`**，否则照样溢出：`131072 × 0.8 + 16384 ≈ 121K < 128K` ✅（16384 已本机实测可用；`thresholdRatio: 0.7` 生效时实际最坏 ≈ 108K，余量更足）；若 `maxTokens` 调到 32K 则会超。
 
 > The `LOCAL_LLAMA_API_KEY` env var must be set to any key from `api_keys.txt` — DSH uses it to build the `Authorization` header; if unset or wrong, it returns 401.
 > `LOCAL_LLAMA_API_KEY` 环境变量需设为 `api_keys.txt` 中的任意一个 key——DSH 用它拼 `Authorization` 头；未设置或值不对会返回 401。

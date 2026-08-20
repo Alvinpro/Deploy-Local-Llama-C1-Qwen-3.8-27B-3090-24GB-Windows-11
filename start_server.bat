@@ -2,14 +2,14 @@
 REM ===========================================================================
 REM  start_server.bat  -  start Qwen3.8-27B (Q4) llama-server (no download/deploy)
 REM
-REM  Prerequisite: qwen38_deploy.ps1 / deploy_and_run.bat already did the first-time
-REM  download; llama.cpp\llama-server.exe, the model GGUF and MTP head exist here.
+REM  Prerequisite: deploy_and_run.bat already did the first-time
+REM  download; llama.cpp\llama-server.exe and the model GGUF (with embedded MTP head) exist here.
 REM
 REM  Usage:
-REM    double-click this file           normal start (text-only, 32K context)
+REM    double-click this file           normal start (text-only, 128K context)
 REM    start_server.bat -Vision         enable vision (swap model to *-VL GGUF first)
 REM    extra args are accepted, e.g.:
-REM    start_server.bat -Ctx 65536      raise context to 64K (only if VRAM allows)
+REM    start_server.bat -Ctx 98304      lower context to 96K (or 65536, if VRAM tight)
 REM    start_server.bat -Port 8081      change server port
 REM    start_server.bat -ApiKeyFile f   use API key file f ("" disables auth; default api_keys.txt)
 REM
@@ -20,14 +20,17 @@ REM ===========================================================================
 REM ---- tunables (edit here, nothing below needs changing) ----
 set "MODEL_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf"
 REM main model file
-set "MODEL_ALIAS=qwen3.8-27b"
+set "MODEL_ALIAS=qwen3.8-27B"
 REM model display name (--alias); clients fill this short name
-set "MTP_FILE=mtp-Qwen3.8-27B-Q4_0.gguf"
-REM MTP speculative-decoding draft head
+REM MTP head is embedded in the main GGUF (blk.64.nextn.*, verified 2026-08-20),
+REM so no separate --spec-draft-model is needed. If you switch to a main GGUF
+REM WITHOUT the embedded head, set "MTP_FILE=mtp-Qwen3.8-27B-Q4_0.gguf" and
+REM append "--spec-draft-model %MTP_FILE%" in the spec block below.
 set "MMPROJ_FILE=mmproj-F16.gguf"
 REM vision projector file (used only when Vision is enabled)
-set "CTX_SIZE=98304"
-REM context window -c; try 65536 / 98304 only if VRAM allows
+set "CTX_SIZE=131072"
+REM context window -c; 131072 = 128K ceiling on 24GB (embedded MTP head).
+REM Lower to 98304 / 65536 if VRAM is tight (160K/192K measured unusable).
 set "REASONING=high"
 REM reasoning_effort: low / medium / high / xhigh
 set "PORT=8080"
@@ -83,11 +86,6 @@ if not exist "%MODEL_FILE%" (
     pause
     exit /b 1
 )
-if not exist "%MTP_FILE%" (
-    echo [ERROR] MTP draft head not found: %MTP_FILE%
-    pause
-    exit /b 1
-)
 
 REM ---- pass reasoning_effort via env var (avoids cmd quoting issues) ----
 set "LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"%REASONING%"}"
@@ -96,8 +94,9 @@ REM ---- assemble launch args (all from the set vars above) ----
 set "ARGS=-m %MODEL_FILE% --alias %MODEL_ALIAS% -c %CTX_SIZE% --parallel %PARALLEL% -ngl %NGL% -fa %FLASH_ATTN% --cache-type-k %CACHE_K% --cache-type-v %CACHE_V% --host %HOST% --port %PORT%"
 
 REM ---- speculative decoding: append --spec-* only if SPEC_TYPE is set ----
+REM MTP head is embedded in the main GGUF; no --spec-draft-model needed.
 if "%SPEC_TYPE%"=="" goto no_spec
-set "ARGS=%ARGS% --spec-type %SPEC_TYPE% --spec-draft-model %MTP_FILE%"
+set "ARGS=%ARGS% --spec-type %SPEC_TYPE%"
 :no_spec
 
 REM ---- auth: --api-key-file wins over --api-key; warn if bound public with no key ----

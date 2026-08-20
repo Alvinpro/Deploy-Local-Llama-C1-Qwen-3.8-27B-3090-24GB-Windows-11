@@ -1,6 +1,7 @@
-# qwen38_deploy.ps1
+# deploy_and_run.ps1
 # One-click deploy Qwen3.8-27B (Q4) on a single RTX 3090 / 24GB GPU, Windows.
-# Downloads the latest llama.cpp CUDA build + GGUF model + MTP draft head, then launches llama-server.
+# Downloads the latest llama.cpp CUDA build + GGUF model (MTP head is EMBEDDED in the
+# main GGUF, no standalone draft file needed), then launches llama-server.
 # Optional vision/multimodal support via -Vision (see $ENABLE_VISION below).
 # Re-running is safe: already-downloaded files are skipped.
 
@@ -13,10 +14,13 @@ Set-Location $WorkDir
 # ---- tunables (edit if needed) ----
 $MODEL_REPO = "unsloth/Qwen3.8-27B-GGUF"
 $MODEL_FILE = "Qwen3.8-27B-UD-Q4_K_XL.gguf"   # ~17.6 GB, fits 24 GB VRAM with room for KV cache
-$MODEL_ALIAS = "qwen3.8-27b"                     # short name shown in /v1/models; clients fill this
+$MODEL_ALIAS = "qwen3.8-27B"                     # short name shown in /v1/models; clients fill this
+# MTP head is EMBEDDED in the main GGUF (blk.64.nextn.*) — the launch no longer uses a
+# standalone draft file. $MTP_FILE below is kept only for compatibility (you can still
+# download it if you ever switch to a main GGUF WITHOUT the embedded head).
 $MTP_REPO   = "ggml-org/Qwen3.8-27B-GGUF"
-$MTP_FILE   = "mtp-Qwen3.8-27B-Q4_0.gguf"       # built-in MTP head for speculative decoding
-$CTX_SIZE   = 98304                              # 96K safe sweet spot on 24GB; raise to 65536/98304 only if VRAM allows
+$MTP_FILE   = "mtp-Qwen3.8-27B-Q4_0.gguf"       # optional; NOT required since the main GGUF embeds the MTP head
+$CTX_SIZE   = 131072                             # 128K = 24GB ceiling with embedded MTP head (~700MB headroom); lower to 98304/65536 if VRAM is tight (160K/192K measured unusable)
 $REASONING  = "high"                             # low | medium | high | xhigh ; default xhigh overthinks
 $PORT       = 8080
 
@@ -37,7 +41,7 @@ if ($PROXY) {
 }
 
 # Vision / multimodal support:
-#   - enable by setting $ENABLE_VISION = $true below, OR run:  qwen38_deploy.ps1 -Vision
+#   - enable by setting $ENABLE_VISION = $true below, OR run:  deploy_and_run.bat -Vision
 #   - REQUIRES a vision model: point $MODEL_FILE at a *-VL GGUF and set $MMPROJ_REPO / $MMPROJ_FILE
 #     to that repo's multimodal projector. The plain Qwen3.8-27B text model will NOT see images.
 $ENABLE_VISION = $false
@@ -162,9 +166,10 @@ if (-not (Test-Path $MODEL_FILE)) {
     & curl.exe -L -C - $url -o $MODEL_FILE
 }
 
-# 3) MTP draft head
+# 3) MTP draft head (OPTIONAL — the main GGUF already embeds the MTP head; downloaded
+#    only for compatibility with setups that still use the standalone file)
 if (-not (Test-Path $MTP_FILE)) {
-    Write-Host "[3/5] Downloading MTP draft head..."
+    Write-Host "[3/5] Downloading MTP draft head (optional, embedded in main GGUF)..."
     $url = "https://huggingface.co/$MTP_REPO/resolve/main/$MTP_FILE"
     & curl.exe -L -C - $url -o $MTP_FILE
 }
@@ -187,6 +192,7 @@ if ($ENABLE_VISION) {
 # native-command arguments, which makes llama-server fail to parse it. The env var is read
 # verbatim, so the JSON survives intact.
 $env:LLAMA_ARG_CHAT_TEMPLATE_KWARGS = '{"reasoning_effort":"' + $REASONING + '"}'
+# MTP head is embedded in the main GGUF — no --spec-draft-model needed
 $serverArgs = @(
     '-m', $MODEL_FILE,
     '--alias', $MODEL_ALIAS,
@@ -194,7 +200,6 @@ $serverArgs = @(
     '-ngl', '99', '-fa', 'on',
     '--cache-type-k', 'q8_0', '--cache-type-v', 'q8_0',
     '--spec-type', 'draft-mtp',
-    '--spec-draft-model', $MTP_FILE,
     '--host', '0.0.0.0', '--port', $PORT
 )
 if ($ENABLE_VISION) {
