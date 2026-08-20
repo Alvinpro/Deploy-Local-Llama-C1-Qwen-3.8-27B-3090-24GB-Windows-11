@@ -397,7 +397,7 @@ On the host, open PowerShell / cmd, run `ipconfig`, find "IPv4 Address", e.g. `1
 | API Key | any one from `api_keys.txt` (like `sk-...`) / `api_keys.txt` 里任意一个（形如 `sk-...`） | server validates it; wrong/empty returns 401 / 服务端会校验；填错 / 不填返回 401 |
 | Model name / Model 名称 | `qwen3.8-27B` | short name (set by script `--alias`), not the long filename / 短名（脚本 `--alias` 指定），不再是长文件名 |
 | Context Window | `98304` (matches server `-c`) / `98304`（与服务端 `-c` 一致） | total context budget (input + output). Fill the server's actual `-c` (see `$CTX_SIZE` in `start_server.bat`); **if left blank, clients like DSH won't proactively compact history**, and over-long requests get rejected by the server / 模型总上下文预算（输入 + 输出）。填服务端实际的 `-c` 值（见 `start_server.bat` 的 `$CTX_SIZE`）；**不填/留空时，DSH 等客户端不会主动压缩历史**，请求堆太长会被服务端直接拒绝 |
-| Input / Output tokens | Output `8192`; Input = Context Window − output reserve (e.g. `90112`) / Output `8192`；Input = Context Window − 输出预留（如 `90112`） | Output is the per-reply cap (`max_tokens`, reasoning chain also counts as output); worst case "input + output" must be less than server `-c`, otherwise rejected for overflow / Output 是单次回复上限（`max_tokens`，思考链也计入输出）；最坏情况「输入 + 输出」必须小于服务端 `-c`，否则溢出被拒 |
+| Input / Output tokens | Output `16384`; Input = Context Window − output reserve (e.g. `81920`) / Output `16384`；Input = Context Window − 输出预留（如 `81920`） | Output is the per-reply cap (`max_tokens`, reasoning chain also counts as output); worst case "input + output" must be less than server `-c`, otherwise rejected for overflow / Output 是单次回复上限（`max_tokens`，思考链也计入输出）；最坏情况「输入 + 输出」必须小于服务端 `-c`，否则溢出被拒 |
 
 Save and you can chat. A response with `reasoning_content` means the reasoning chain (reasoning_effort) is in effect. If the tool only has the 3 basic items and no Context Window / Input/Output fields, just fill the 3; but Agent frameworks (like DSH) must declare the context window for long conversations — see the DSH section below.
 
@@ -448,16 +448,16 @@ local-llama:
     - id: qwen3.8-27B
       name: qwen3.8-27B-llama
       contextWindow: 98304   # must be ≤ server -c; leave ~10~15% headroom / 必须 ≤ 服务端 -c，建议留 10~15% 余量
-      maxTokens: 8192        # per-reply output cap (incl. reasoning chain), consumes the window / 单次输出上限（含思考链），会占用窗口
+      maxTokens: 16384       # per-reply output cap (incl. reasoning chain), consumes the window; 16384 tested on this box / 单次输出上限（含思考链），会占用窗口；16384 已本机实测可用
 ```
 
 - `contextWindow` = total window budget (input + output); DSH uses it to compute the compaction water level (×`thresholdRatio`) and overflow detection;
 - `maxTokens` = per-reply output cap (maps to API `max_tokens`; the reasoning chain of `reasoning_effort` also counts as output);
-- Worst-case request = compacted-input + `maxTokens`, **must be less than server `-c`**, otherwise it still overflows: `98304 × 0.8 + 8192 ≈ 86.8K < 96K` ✅; if `maxTokens` is raised to 32K it will overflow.
+- Worst-case request = compacted-input + `maxTokens`, **must be less than server `-c`**, otherwise it still overflows: `98304 × 0.8 + 16384 ≈ 95K < 96K` ✅ (16384 tested on this box; with `thresholdRatio: 0.7` in effect the real worst case is ≈ 85K, more headroom); if `maxTokens` is raised to 32K it will overflow.
 
 - `contextWindow` = 总窗口预算（输入 + 输出），DSH 用它算压缩水位（×`thresholdRatio`）和溢出检测；
 - `maxTokens` = 单次回复输出上限（映射 API `max_tokens`，`reasoning_effort` 的思考链也算输出）；
-- 最坏情况请求 = 压缩水位输入 + `maxTokens`，**必须小于服务端 `-c`**，否则照样溢出：`98304 × 0.8 + 8192 ≈ 86.8K < 96K` ✅；若 `maxTokens` 调到 32K 则会超。
+- 最坏情况请求 = 压缩水位输入 + `maxTokens`，**必须小于服务端 `-c`**，否则照样溢出：`98304 × 0.8 + 16384 ≈ 95K < 96K` ✅（16384 已本机实测可用；`thresholdRatio: 0.7` 生效时实际最坏 ≈ 85K，余量更足）；若 `maxTokens` 调到 32K 则会超。
 
 > The `LOCAL_LLAMA_API_KEY` env var must be set to any key from `api_keys.txt` — DSH uses it to build the `Authorization` header; if unset or wrong, it returns 401.
 > `LOCAL_LLAMA_API_KEY` 环境变量需设为 `api_keys.txt` 中的任意一个 key——DSH 用它拼 `Authorization` 头；未设置或值不对会返回 401。
