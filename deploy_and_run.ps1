@@ -1,11 +1,11 @@
-# deploy_and_run.ps1
+﻿# deploy_and_run.ps1
 # One-click deploy Qwen3.8-27B (Q4) on a single RTX 3090 / 24GB GPU, Windows.
 # Downloads the latest llama.cpp CUDA build + GGUF model (MTP head is EMBEDDED in the
-# main GGUF, no standalone draft file needed), then launches llama-server.
-# Optional vision/multimodal support via -Vision (see $ENABLE_VISION below).
+# main GGUF, no standalone draft file needed) + vision projector (mmproj), then launches
+# llama-server with VISION ON by default.
 # Re-running is safe: already-downloaded files are skipped.
 
-param([switch]$Vision)
+param([switch]$Vision, [switch]$NoVision)
 
 $ErrorActionPreference = "Stop"
 $WorkDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -40,12 +40,15 @@ if ($PROXY) {
     $env:https_proxy = $PROXY
 }
 
-# Vision / multimodal support:
-#   - enable by setting $ENABLE_VISION = $true below, OR run:  deploy_and_run.bat -Vision
-#   - REQUIRES a vision model: point $MODEL_FILE at a *-VL GGUF and set $MMPROJ_REPO / $MMPROJ_FILE
-#     to that repo's multimodal projector. The plain Qwen3.8-27B text model will NOT see images.
-$ENABLE_VISION = $false
-if ($Vision.IsPresent) { $ENABLE_VISION = $true }
+# Vision / multimodal support (ON by default):
+#   - Qwen3.8-27B is a NATIVE vision-language model — the same main GGUF works; the
+#     mmproj-F16.gguf (927.6MB) projector is downloaded below and attached as --mmproj.
+#   - --no-mmproj-offload keeps the projector on CPU, so GPU VRAM stays unchanged
+#     (measured: 128K context still fits 24GB with vision ON).
+#   - Disable with:  deploy_and_run.bat -NoVision   (or set $ENABLE_VISION = $false)
+$ENABLE_VISION = $true
+if ($NoVision.IsPresent) { $ENABLE_VISION = $false }
+if ($Vision.IsPresent)   { $ENABLE_VISION = $true }
 $MMPROJ_REPO   = "unsloth/Qwen3.8-27B-GGUF"
 $MMPROJ_FILE   = "mmproj-F16.gguf"
 
@@ -174,7 +177,7 @@ if (-not (Test-Path $MTP_FILE)) {
     & curl.exe -L -C - $url -o $MTP_FILE
 }
 
-# 4) Vision projector (optional, only when $ENABLE_VISION)
+# 4) Vision projector (default; skipped only when vision is disabled)
 if ($ENABLE_VISION) {
     if (-not (Test-Path $MMPROJ_FILE) -or (Get-Item $MMPROJ_FILE).Length -lt 1MB) {
         Write-Host "[4/5] Downloading vision projector ($MMPROJ_FILE, resumable)..."
@@ -204,10 +207,10 @@ $serverArgs = @(
 )
 if ($ENABLE_VISION) {
     if (-not (Test-Path $MMPROJ_FILE)) { throw "Vision enabled but projector missing: $MMPROJ_FILE" }
-    $serverArgs += @('--mmproj', $MMPROJ_FILE)
+    $serverArgs += @('--mmproj', $MMPROJ_FILE, '--no-mmproj-offload')
     Write-Host "[5/5] Starting llama-server (vision ON) at http://127.0.0.1:$PORT  (Ctrl+C to stop)"
 } else {
-    Write-Host "[5/5] Starting llama-server at http://127.0.0.1:$PORT  (Ctrl+C to stop)"
+    Write-Host "[5/5] Starting llama-server (vision OFF) at http://127.0.0.1:$PORT  (Ctrl+C to stop)"
 }
 
 # API key auth: file wins over inline key

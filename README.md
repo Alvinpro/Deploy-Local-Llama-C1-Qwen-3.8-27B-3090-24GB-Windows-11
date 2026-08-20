@@ -1,8 +1,8 @@
 ![Qwen3.8-27B local deployment: one-click on a single RTX 3090](assets/readme/hero.svg?v=20260820163000)
 
-One-click deployment of **Qwen3.8-27B** on a single RTX 3090 (24GB) **on Windows 11**: Q4_K_XL quantization + embedded-MTP speculative decoding + 128K context window, exposed as an **OpenAI-compatible** `llama-server`, averaging ~**47 tok/s** with ~**1.4×** measured lossless MTP speedup.
+One-click deployment of **Qwen3.8-27B** on a single RTX 3090 (24GB) **on Windows 11**: Q4_K_XL quantization + embedded-MTP speculative decoding + 128K context window + **built-in vision (native VL model)**, exposed as an **OpenAI-compatible** `llama-server`, averaging ~**47 tok/s** with ~**1.4×** measured lossless MTP speedup.
 
-在单张 RTX 3090（24GB）上 **一键部署 Qwen3.8-27B**（**Windows 11 部署实测**）：Q4_K_XL 量化 + 内嵌 MTP 推测解码 + 128K 上下文，以 **OpenAI 兼容** `llama-server` 对外服务，平均 ~**47 tok/s**，MTP 无损提速 ~**1.4×**（实测）。
+在单张 RTX 3090（24GB）上 **一键部署 Qwen3.8-27B**（**Windows 11 部署实测**）：Q4_K_XL 量化 + 内嵌 MTP 推测解码 + 128K 上下文 + **内置视觉（原生 VL 模型）**，以 **OpenAI 兼容** `llama-server` 对外服务，平均 ~**47 tok/s**，MTP 无损提速 ~**1.4×**（实测）。
 
 ---
 
@@ -34,6 +34,7 @@ llama-3090/
 ├── api_keys.txt            # API key list (used by llama-server auth, one per line; created by generator) / API key 列表（llama-server 鉴权用，每行一个；用生成器创建）
 ├── Qwen3.8-27B-UD-Q4_K_XL.gguf   # main model ~17.6GB (generated after first download) / 主模型 ~17.6GB（首次下载后生成）
 ├── mtp-Qwen3.8-27B-Q4_0.gguf     # optional standalone MTP head ~1.68GB (NOT needed — the main GGUF already embeds the MTP head; kept only for compatibility) / 独立 MTP 草稿头 ~1.68GB（已不需要——主 GGUF 已内嵌 MTP 头，保留仅兼容旧脚本）
+├── mmproj-F16.gguf               # vision projector ~927MB (auto-downloaded; vision ON by default) / 视觉投影器 ~927MB（自动下载；视觉默认开启）
 └── llama.cpp/              # llama.cpp CUDA build (includes llama-server.exe and CUDA runtime DLLs) / llama.cpp CUDA 构建（含 llama-server.exe 与 CUDA 运行时 DLL）
 ```
 
@@ -54,13 +55,15 @@ Double-click `deploy_and_run.bat`; the script will, in order:
 
 1. Download the latest llama.cpp CUDA build (including the cudart runtime DLL) and merge it into `llama.cpp/`;
 2. Download the model GGUF (~17.6GB, resumable);
-3. Download the MTP draft head (optional — the main GGUF already embeds the MTP head, and the launch scripts no longer need the standalone file);
-4. Launch `llama-server`, listening on `0.0.0.0:8080` (reachable on the LAN).
+3. Download the vision projector `mmproj-F16.gguf` (~927MB — vision is ON by default);
+4. Download the MTP draft head (optional — the main GGUF already embeds it);
+5. Launch `llama-server`, listening on `0.0.0.0:8080` (reachable on the LAN), **vision ON**.
 
 1. 下载最新 llama.cpp CUDA 构建（含 cudart 运行时 DLL）并合并到 `llama.cpp/`；
 2. 下载模型 GGUF（~17.6GB，断点续传）；
-3. 下载 MTP 草稿头（可选——主 GGUF 已内嵌 MTP 头，启动脚本已不再需要独立文件）；
-4. 启动 `llama-server`，监听 `0.0.0.0:8080`（局域网可访问）。
+3. 下载视觉投影器 `mmproj-F16.gguf`（~927MB——视觉默认开启）；
+4. 下载 MTP 草稿头（可选——主 GGUF 已内嵌）；
+5. 启动 `llama-server`，监听 `0.0.0.0:8080`（局域网可访问），**视觉开启**。
 
 > On first launch, if `api_keys.txt` does not yet exist, it will show "no auth" and run normally; after generating a key with `gen_api_key.bat` and restarting, auth is enabled (see "API Key Authentication").
 > 首次启动时若还没有 `api_keys.txt`，会提示「无鉴权」并照常运行；用 `gen_api_key.bat` 生成 key 后重启即可开启鉴权（见「API Key 鉴权」）。
@@ -75,8 +78,8 @@ Use the standalone launch script to skip all download logic:
 直接用独立的启动脚本，跳过所有下载逻辑：
 
 ```
-start_server.bat                 # normal launch (128K context) / 正常启动（128K 上下文）
-start_server.bat -Vision         # multimodal (swap to a VL model first, see below) / 多模态（需先换 VL 模型，见下文）
+start_server.bat                 # normal launch (128K context, vision ON) / 正常启动（128K 上下文，视觉开启）
+start_server.bat -NoVision       # disable vision (text-only) / 关闭视觉（纯文本）
 start_server.bat -Ctx 65536      # lower context to 64K (if VRAM is tight) / 改上下文到 64K（显存吃紧时用）
 start_server.bat -Port 8081      # change server port / 改服务端口
 start_server.bat -ApiKeyFile C:\path\keys.txt   # use another key file (default api_keys.txt) / 换用其他 key 文件（默认 api_keys.txt）
@@ -114,6 +117,8 @@ llama.cpp\llama-server.exe
   --cache-type-k q8_0
   --cache-type-v q8_0
   --spec-type draft-mtp            # MTP head is embedded in the main GGUF / MTP 头内嵌于主 GGUF
+  --mmproj mmproj-F16.gguf           # vision projector, ON by default / 视觉投影器，默认开启
+  --no-mmproj-offload                # projector stays on CPU (VRAM-neutral) / 投影器留 CPU（不占显存）
   --api-key-file api_keys.txt        # auto-appended when api_keys.txt exists / 存在 api_keys.txt 时自动附加
   --host 0.0.0.0
   --port 8080
@@ -126,12 +131,14 @@ LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"high"}
 |------|-----|------|
 | `-m` | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | main model (27B, Q4_K_XL, ~17.6GB) / 主模型（27B，Q4_K_XL，~17.6GB） |
 | `--alias` | `qwen3.8-27B` | model short name (clients use this, not the long filename) / 模型短名（客户端填这个，不是长文件名） |
-| `-c` | `131072` | context window upper bound 128K (the ceiling on 24GB with embedded MTP head, ~700MB headroom; independent of `reasoning_effort` tier) / 上下文窗口上限 128K（24GB + 内嵌 MTP 头的天花板，余量 ~700MB；与 `reasoning_effort` 档位无关） |
+| `-c` | `131072` | context window upper bound 128K — runs at **full speed (44.6 tok/s measured on an idle machine)**, ~715MB headroom; independent of `reasoning_effort` tier / 上下文窗口上限 128K——**满速运行（干净环境实测 44.6 tok/s）**，余量 ~715MB；与 `reasoning_effort` 档位无关 |
 | `--parallel` | `1` | single concurrent session (VRAM only fits one) / 单并发（显存只够一个会话） |
 | `-ngl` | `99` | offload all layers to GPU (avoid falling back to CPU) / 全量层 offload 到 GPU（避免掉回 CPU） |
 | `-fa` | `on` | enable Flash Attention / 开启 Flash Attention |
 | `--cache-type-k/v` | `q8_0` | KV cache quantization, saves VRAM and is faster / KV cache 量化，省显存且更快 |
 | `--spec-type` | `draft-mtp` | MTP speculative decoding using the MTP head **embedded in the main GGUF** (~1.4× measured speedup, lossless; no standalone draft file) / MTP 推测解码，使用主 GGUF **内嵌的 MTP 头**（实测 ~1.4× 提速，无损；无需独立草稿文件） |
+| `--mmproj` | `mmproj-F16.gguf` | vision projector (image encoder); attached by default — the same Qwen3.8-27B model is natively VL, no model swap needed / 视觉投影器（图像编码器）；默认附加——Qwen3.8-27B 本身是原生 VL 模型，无需换模型 |
+| `--no-mmproj-offload` | `-` | keep the projector on CPU so GPU VRAM stays unchanged (measured: 128K + vision still fits 24GB) / 投影器留 CPU，GPU 显存不变（实测：128K + 视觉仍装得进 24GB） |
 | `--api-key-file` | `api_keys.txt` | auth key file (one per line, `#` = comment); omitted automatically with a warning if the file is missing / 鉴权 key 文件（每行一个，`#` 注释）；文件不存在时自动省略并告警 |
 | `--host/--port` | `0.0.0.0:8080` | listen on all interfaces at 8080 (OpenAI-compatible API, reachable on LAN) / 监听所有网卡 8080（OpenAI 兼容 API，局域网可访问） |
 
@@ -147,7 +154,7 @@ Edit the top of `deploy_and_run.ps1` (the top variables of `start_server.bat` wo
 |------|--------|------|
 | `$MODEL_FILE` | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | main model filename / 主模型文件名 |
 | `$MTP_FILE` | `mtp-Qwen3.8-27B-Q4_0.gguf` | standalone MTP head — no longer used by `start_server.bat` (the main GGUF embeds the MTP head); kept only for compatibility / 独立 MTP 草稿头——`start_server.bat` 已不再使用（主 GGUF 内嵌 MTP 头），仅保留兼容 |
-| `$CTX_SIZE` | `131072` | context window upper bound (default 128K, the ceiling on 24GB with embedded MTP head, ~700MB headroom); lower to `98304`/`65536` if VRAM is tight; `163840`/`196608` measured **unusable** on 24GB / 上下文窗口上限（默认 128K，24GB + 内嵌 MTP 头的天花板，余量 ~700MB）；显存吃紧降到 `98304`/`65536`；160K/192K 在 24GB 上实测**不可用** |
+| `$CTX_SIZE` | `131072` | context window upper bound (default 128K, runs at **full speed 44.6 tok/s** on an idle machine, ~715MB headroom); lower to `98304`/`65536` if VRAM is tight; `163840`/`196608` run at 1/2 and 1/5 speed (memory-pressure cliff) — impractical / 上下文窗口上限（默认 128K，干净环境**满速 44.6 tok/s**，余量 ~715MB）；显存吃紧降到 `98304`/`65536`；160K/192K 只有 1/2、1/5 速度（内存压力悬崖）——不实用 |
 | `$REASONING` | `high` | `low`/`medium`/`high`/`xhigh`; default was xhigh which over-thinks / `low`/`medium`/`high`/`xhigh`；默认 xhigh 会过度思考 |
 | `$PORT` | `8080` | server port / 服务端口 |
 | `$API_KEY` | `""` (empty) | single inline key (`--api-key`); plaintext appears in script / process command line, local debugging only — use `$API_KEY_FILE` for daily use / 单个内联 key（`--api-key`）；明文会出现在脚本/进程命令行，仅本地调试用，日常用 `$API_KEY_FILE` |
@@ -173,9 +180,9 @@ Edit the top of `deploy_and_run.ps1` (the top variables of `start_server.bat` wo
 
 ### Want larger / smaller context? / 想调大 / 调小上下文？
 
-Change `$CTX_SIZE` (the top variable in both scripts) to `131072` (current default) / `98304` / `65536` and re-run; KV cache grows roughly linearly with context and uses more VRAM. If VRAM is tight, lower the default to `98304` or even `65536`. Contexts above 128K (`163840`/`196608`) are measured **unusable** on 24GB — they load but crash during generation.
+Change `$CTX_SIZE` (the top variable in both scripts) to `131072` (current default) / `98304` / `65536` and re-run; KV cache grows roughly linearly with context and uses more VRAM. If VRAM is tight, lower the default to `98304` or even `65536`. Contexts above 128K (`163840`/`196608`) load and generate but run at **1/2 and 1/5 speed** (memory-pressure cliff) — impractical for daily use.
 
-改 `$CTX_SIZE`（两脚本顶部变量）为 `131072`（当前默认）/ `98304` / `65536`，重跑即可；KV cache 随上下文近似线性增长，更吃显存。显存吃紧就把默认调小到 `98304` 甚至 `65536`。**超过 128K（160K/192K）在 24GB 上实测不可用**——能加载但生成即崩。
+改 `$CTX_SIZE`（两脚本顶部变量）为 `131072`（当前默认）/ `98304` / `65536`，重跑即可；KV cache 随上下文近似线性增长，更吃显存。显存吃紧就把默认调小到 `98304` 甚至 `65536`。**超过 128K（160K/192K）能加载生成但只有 1/2、1/5 速度**（内存压力性能悬崖），不适合日常使用。
 
 #### Four-tier measured usability (2026-08-20, current config: Q4_K_XL + MTP + high + ngl99 + fa on + cache q8_0) / 四档实测可用性（2026-08-20，当前配置：Q4_K_XL + MTP + high + ngl99 + fa on + cache q8_0）
 
@@ -187,15 +194,15 @@ Change `$CTX_SIZE` (the top variable in both scripts) to `131072` (current defau
 | 32K | `32768` | ~22700 MiB | ~1900 MiB | ✅ usable, most stable / ✅ 可用，最稳 |
 | 64K | `65536` | 22756 MiB | ~1820 MiB | ✅ usable / ✅ 可用 |
 | 96K | `98304` | 23848 MiB | ~728 MiB | ✅ usable, tight headroom / ✅ 可用，余量偏紧 |
-| 128K (default) / 128K（默认） | `131072` | 24199 MiB¹ | ~377 MiB¹ | ⚠️ loadable, tight headroom — the 24GB ceiling / ⚠️ 可加载，余量紧——24GB 天花板 |
-| 160K | `163840` | 24186 MiB | ~390 MiB | ❌ loads but prefill collapses (138 vs ~1060 tok/s) and OOMs in production / ❌ 能加载但 prefill 暴跌、实战必 OOM |
-| 192K | `196608` | ~24200 MiB | ~0 MiB | ❌ loads then crashes on the first request / ❌ 加载后首轮请求即崩溃 |
+| 128K (default) / 128K（默认） | `131072` | 23861 MiB | ~715 MiB | ✅ full speed (44.6 tok/s measured on an idle machine), tight headroom / ✅ 满速（干净环境实测 44.6 tok/s），余量偏紧 |
+| 160K | `163840` | 24223 MiB | ~353 MiB | ⚠️ loads and generates but **half speed** (22.2 tok/s) / ⚠️ 能加载生成但**半速**（22.2 tok/s） |
+| 192K | `196608` | 24184 MiB | ~392 MiB | ❌ loads and generates but **1/5 speed** (8.3 tok/s) — impractical / ❌ 能加载生成但**1/5 速**（8.3 tok/s）——不实用 |
 
-> ¹ Historical numbers measured with the standalone MTP draft file. With the current **embedded MTP head** (default), VRAM drops by ~0.9GB across the board — e.g. 128K ≈ 23.3GB, ~700MB headroom.
-> ¹ 历史数据（独立 MTP 文件时期）。当前**内嵌 MTP 头**（默认）整体少占 ~0.9GB——如 128K 约 23.3GB，余量 ~700MB。
+> ¹ Historical numbers measured with the standalone MTP draft file. With the current **embedded MTP head** (default), VRAM drops by ~0.9GB across the board — e.g. 128K measured 23,861 MiB, ~715MB headroom.
+> ¹ 历史数据（独立 MTP 文件时期）。当前**内嵌 MTP 头**（默认）整体少占 ~0.9GB——如 128K 实测 23,861 MiB，余量 ~715MB。
 
-- Under the current config, **128K is the measured ceiling on 24GB** (KV cache allocation passes, can listen; with the embedded head ~700MB headroom). 160K/192K can also *load* but are **unusable**: 160K leaves only ~390MB — prefill speed collapses (138 vs ~1060 tok/s) and production OOM is near-certain; 192K crashes on its first request. Flash Attention activation peaks / long-prompt inference easily trigger transient OOM at the ceiling, so 128K is only recommended when you really need the room; if you want more stability and looser VRAM, set `$CTX_SIZE` back to `98304` or `65536`.
-- **结论**：在当前配置下，**128K 是 24GB 的实测天花板**（KV cache 分配通过、能监听；内嵌头余量 ~700MB）。160K/192K 虽能加载但**不可用**：160K 仅剩 ~390MB，prefill 速度暴跌（138 vs 正常 ~1060 tok/s），实战几乎必 OOM；192K 首轮请求即崩溃。天花板附近 Flash Attention 激活峰值 / 长 prompt 推理极易触发瞬时 OOM，128K 仅建议确实需要大窗口时使用；若想更稳、显存更宽松，可把 `$CTX_SIZE` 调回 `98304` 或 `65536`。
+- Under the current config, **128K runs at full speed (44.6 tok/s measured on an idle machine) and is the recommended default** (~715MB headroom). 160K/192K can also *load and generate* but hit a memory-pressure cliff: 160K drops to ~22 tok/s (half speed), 192K to ~8 tok/s (1/5 speed) — neither crashes, but both are impractical for daily use. Earlier readings that showed 128K at ~11 tok/s and a 192K crash were polluted by a concurrently running llama-server. If you want more stability and looser VRAM, set `$CTX_SIZE` back to `98304` or `65536`.
+- **结论**：在当前配置下，**128K 满速运行（干净环境实测 44.6 tok/s），作为默认推荐**（余量 ~715MB）。160K/192K 虽能加载生成，但撞上内存压力悬崖：160K 掉到 ~22 tok/s（半速）、192K ~8 tok/s（1/5 速）——都不崩溃，但都不适合日常使用。早前"128K 仅 11 tok/s、192K 崩溃"的读数是同一 GPU 上并发运行 llama 服务污染所致。若想更稳、显存更宽松，可把 `$CTX_SIZE` 调回 `98304` 或 `65536`。
 - ⚠️ The table above shows usage at the "model load + KV allocation" stage, **excluding the activation peak during actual generation**. The high tier produces more reasoning tokens and uses more budget, so be conservative with large contexts; if OOM actually happens, lower it.
 - ⚠️ 上表是「模型加载 + KV 分配」阶段的占用，**不含实际生成时的激活峰值**。high 档推理 token 更多、更占预算，上大上下文时务必保守，真 OOM 就往回调小。
 
@@ -235,28 +242,22 @@ All four values of `$REASONING` **work normally**, verified by measurement (not 
 
 ---
 
-## Vision / Multimodal Toggle / 视觉 / 多模态开关
+## Vision / Multimodal (ON by default) / 视觉 / 多模态（默认开启）
 
-Two ways to enable (choose one):
+Qwen3.8-27B is a **native vision-language model** — the same main GGUF supports images; **no model swap is needed**. Vision is **enabled by default** in all three launch scripts: they attach `--mmproj mmproj-F16.gguf --no-mmproj-offload`, and `deploy_and_run.ps1` auto-downloads the projector (~927MB) on first deploy.
 
-开启方式（二选一）：
+Qwen3.8-27B 是**原生视觉语言模型**——同一个主 GGUF 即支持看图，**无需换模型**。三个启动脚本**默认开启视觉**：自动附加 `--mmproj mmproj-F16.gguf --no-mmproj-offload`，`deploy_and_run.ps1` 首次部署时自动下载投影器（~927MB）。
 
-- Edit `deploy_and_run.ps1` and change `$ENABLE_VISION = $false` to `$true`;
-- Or command line: `deploy_and_run.bat -Vision` / `start_server.bat -Vision`.
+To disable vision (text-only) / 关闭视觉（纯文本模式）：
+- `start_server.bat -NoVision` / `deploy_and_run.bat -NoVision`，或把脚本里 `ENABLE_VISION` 改为 `0` / `$ENABLE_VISION = $false`。
 
-- 编辑 `deploy_and_run.ps1`，把 `$ENABLE_VISION = $false` 改为 `$true`；
-- 或命令行：`deploy_and_run.bat -Vision` / `start_server.bat -Vision`。
+`--no-mmproj-offload` keeps the projector on the **CPU**, so GPU VRAM stays identical to text-only (measured: 128K context + vision ON still fits 24GB at ~24.1GB). If you remove it, the projector loads into VRAM (+~1GB) and 128K will exceed 24GB — keep it.
 
-After enabling, it auto-downloads the vision projector file `mmproj-F16.gguf` and appends the `--mmproj` flag.
+`--no-mmproj-offload` 让投影器留在 **CPU 内存**，GPU 显存与纯文本完全一致（实测：128K + 视觉开启约 24.1GB，仍装得进 24GB）。去掉它会多占 ~1GB 显存导致 128K 超限——请保留。
 
-开启后会自动下载视觉投影文件 `mmproj-F16.gguf` 并附加 `--mmproj` 参数。
+Vision is verified working (2026-08-20): 4-color quadrants, 9-color grid (9/9), and low-contrast OCR ("581") all recognized correctly; MTP speculative decoding works on vision requests; mmproj F16 vs BF16 recognition is identical.
 
-> ⚠️ **Important**: `--mmproj` only works on **vision models**. The current model is the text-only `Qwen3.8-27B`, so **even with the toggle on you cannot view images** — llama-server will report "model is not a vision model". To actually use vision you need to:
-> 1. Change `$MODEL_FILE` to the corresponding **Qwen3.8-VL GGUF**;
-> 2. Point `$MMPROJ_REPO` / `$MMPROJ_FILE` to that vision repo's projector file.
-> ⚠️ **重要**：`--mmproj` 只对**视觉模型**有效。当前跑的是纯文本 `Qwen3.8-27B`，**即使开了开关也看不了图**——llama-server 会报“模型不是视觉模型”。要真正用上视觉，需：
-> 1. 把 `$MODEL_FILE` 换成对应的 **Qwen3.8-VL GGUF**；
-> 2. 把 `$MMPROJ_REPO` / `$MMPROJ_FILE` 指向该视觉仓库的投影文件。
+视觉已实测可用（2026-08-20）：四色象限、9 色九宫格（9/9）、低对比度 OCR（"581"）全部识别正确；MTP 推测解码在视觉请求下正常；mmproj F16 与 BF16 识别效果一致。
 
 ---
 

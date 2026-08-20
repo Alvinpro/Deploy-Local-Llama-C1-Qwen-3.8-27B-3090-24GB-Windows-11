@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="1200" height="560" viewBox="0 0 1200 560"
+     width="1200" height="580" viewBox="0 0 1200 580"
      role="img" aria-labelledby="mb-title mb-desc">
   <title id="mb-title">显存预算与上下文档位（RTX 3090 24GB）</title>
-  <desc id="mb-desc">上半部：默认 128K 上下文 + 内嵌 MTP 头配置下显存分布堆叠条，Q4_K_XL 权重 17.6GB（MTP 头内嵌，0 额外显存）、KV cache 加 CUDA 开销约 5.7GB，合计约 23.3GB / 24GB。下半部：64K / 96K / 128K / 160K / 192K 五档上下文的加载后显存占用条，128K 为默认天花板（余量 ~700MiB），160K/192K 实测不可用。</desc>
+  <desc id="mb-desc">上半部：默认 128K 上下文 + 内嵌 MTP 头配置下显存分布堆叠条，Q4_K_XL 权重 17.6GB（MTP 头内嵌，0 额外显存）、KV cache 加 CUDA 开销约 5.7GB，合计约 23.3GB / 24GB。下半部：32K / 64K / 96K / 128K / 160K / 192K 六档上下文的加载后显存占用条（均为实测），128K 为默认（满速，余量 ~715MiB），160K/192K 能加载生成但仅半速/1/5 速，不实用。</desc>
 
   <defs>
     <style>
@@ -11,7 +11,7 @@
     </style>
   </defs>
 
-  <rect width="1200" height="560" rx="24" fill="#0C0E12"/>
+  <rect width="1200" height="580" rx="24" fill="#0C0E12"/>
 
   <!-- header -->
   <rect x="56" y="56" width="8" height="8" rx="2" fill="#46C486"/>
@@ -40,41 +40,47 @@
     <text x="979" y="216" class="mono" font-size="18" fill="#8A919C" text-anchor="middle">KV + CUDA 开销 ≈5.7GB</text>
   </g>
 
-  <!-- ============ module 2: context tiers ============ -->
+  <!-- ============ module 2: context tiers (six tiers, all measured) ============ -->
   <g id="context-tiers">
     <text x="56" y="276" class="sans" font-size="20" font-weight="600" fill="#F4F5F7">上下文档位（内嵌 MTP 头 · 2026-08-20）</text>
     <text x="1144" y="276" class="mono" font-size="16" fill="#8A919C" text-anchor="end">KV cache 随上下文近似线性增长</text>
 
+    <!-- row 32K -->
+    <text x="56" y="312" class="mono" font-size="20" fill="#F4F5F7">32K</text>
+    <rect x="150" y="296" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="296" width="645" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="312" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~1.9GB · 最稳</text>
+
     <!-- row 64K -->
-    <text x="56" y="316" class="mono" font-size="20" fill="#F4F5F7">64K</text>
-    <rect x="150" y="300" width="700" height="18" rx="9" fill="#222936"/>
-    <rect x="150" y="300" width="612" height="18" rx="9" fill="#46C486"/>
-    <text x="1144" y="316" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~3.0GB · 余量充足</text>
+    <text x="56" y="356" class="mono" font-size="20" fill="#F4F5F7">64K</text>
+    <rect x="150" y="340" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="340" width="647" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="356" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~1.8GB · 余量充足</text>
 
     <!-- row 96K -->
-    <text x="56" y="364" class="mono" font-size="20" fill="#F4F5F7">96K</text>
-    <rect x="150" y="348" width="700" height="18" rx="9" fill="#222936"/>
-    <rect x="150" y="348" width="637" height="18" rx="9" fill="#46C486"/>
-    <text x="1144" y="364" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~2.1GB · 余量充足</text>
+    <text x="56" y="400" class="mono" font-size="20" fill="#F4F5F7">96K</text>
+    <rect x="150" y="384" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="384" width="682" height="18" rx="9" fill="#46C486"/>
+    <text x="1144" y="400" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#46C486">●</tspan> 剩余 ~0.7GB · 余量偏紧</text>
 
-    <!-- row 128K (default, ceiling) -->
-    <text x="56" y="412" class="mono" font-size="20" fill="#F4F5F7">128K<tspan font-size="16" fill="#8A919C"> 默认</tspan></text>
-    <rect x="150" y="396" width="700" height="18" rx="9" fill="#222936"/>
-    <rect x="150" y="396" width="661" height="18" rx="9" fill="#E8A33D"/>
-    <text x="1144" y="412" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E8A33D">●</tspan> 余量 ~700MiB · 天花板</text>
+    <!-- row 128K (default, full speed) -->
+    <text x="56" y="444" class="mono" font-size="20" fill="#F4F5F7">128K<tspan font-size="16" fill="#8A919C"> 默认</tspan></text>
+    <rect x="150" y="428" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="428" width="682" height="18" rx="9" fill="#E8A33D"/>
+    <text x="1144" y="444" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E8A33D">●</tspan> 余量 ~715MiB · 满速默认</text>
 
     <!-- row 160K -->
-    <text x="56" y="460" class="mono" font-size="20" fill="#F4F5F7">160K</text>
-    <rect x="150" y="444" width="700" height="18" rx="9" fill="#222936"/>
-    <rect x="150" y="444" width="688" height="18" rx="9" fill="#E15B5B"/>
-    <text x="1144" y="460" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E15B5B">●</tspan> 剩余 ~390MiB · 不可用</text>
+    <text x="56" y="488" class="mono" font-size="20" fill="#F4F5F7">160K</text>
+    <rect x="150" y="472" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="472" width="690" height="18" rx="9" fill="#E15B5B"/>
+    <text x="1144" y="488" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E15B5B">●</tspan> 剩余 ~353MiB · 半速</text>
 
     <!-- row 192K -->
-    <text x="56" y="508" class="mono" font-size="20" fill="#F4F5F7">192K</text>
-    <rect x="150" y="492" width="700" height="18" rx="9" fill="#222936"/>
-    <rect x="150" y="492" width="688" height="18" rx="9" fill="#E15B5B"/>
-    <text x="1144" y="508" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E15B5B">●</tspan> 加载后首轮即崩溃 · 不可用</text>
+    <text x="56" y="532" class="mono" font-size="20" fill="#F4F5F7">192K</text>
+    <rect x="150" y="516" width="700" height="18" rx="9" fill="#222936"/>
+    <rect x="150" y="516" width="689" height="18" rx="9" fill="#E15B5B"/>
+    <text x="1144" y="532" class="mono" font-size="18" fill="#B9BEC6" text-anchor="end"><tspan fill="#E15B5B">●</tspan> 剩余 ~392MiB · 1/5 速不实用</text>
 
-    <text x="56" y="544" class="mono" font-size="16" fill="#8A919C">柱长 = 加载后显存占用（满格 = 24576 MiB）· 64K/96K 为按内嵌头推算，128K 及以上为实测 · 160K prefill 劣化 7×（138 vs ~1060 tok/s）</text>
+    <text x="56" y="564" class="mono" font-size="16" fill="#8A919C">柱长 = 加载后显存占用（满格 = 24576 MiB）· 六档均为实测（内嵌 MTP 头）· 160K/192K 能加载生成但仅半速/1/5 速（内存压力悬崖），不适合日常</text>
   </g>
 </svg>

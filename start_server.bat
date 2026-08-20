@@ -2,12 +2,12 @@
 REM ===========================================================================
 REM  start_server.bat  -  start Qwen3.8-27B (Q4) llama-server (no download/deploy)
 REM
-REM  Prerequisite: deploy_and_run.bat already did the first-time
+REM  Prerequisite: qwen38_deploy.ps1 / deploy_and_run.bat already did the first-time
 REM  download; llama.cpp\llama-server.exe and the model GGUF (with embedded MTP head) exist here.
 REM
 REM  Usage:
-REM    double-click this file           normal start (text-only, 128K context)
-REM    start_server.bat -Vision         enable vision (swap model to *-VL GGUF first)
+REM    double-click this file           normal start (128K context, vision ON by default)
+REM    start_server.bat -NoVision       disable vision (text-only)
 REM    extra args are accepted, e.g.:
 REM    start_server.bat -Ctx 98304      lower context to 96K (or 65536, if VRAM tight)
 REM    start_server.bat -Port 8081      change server port
@@ -27,7 +27,8 @@ REM so no separate --spec-draft-model is needed. If you switch to a main GGUF
 REM WITHOUT the embedded head, set "MTP_FILE=mtp-Qwen3.8-27B-Q4_0.gguf" and
 REM append "--spec-draft-model %MTP_FILE%" in the spec block below.
 set "MMPROJ_FILE=mmproj-F16.gguf"
-REM vision projector file (used only when Vision is enabled)
+REM vision projector file (vision is ON by default; --no-mmproj-offload keeps it on CPU
+REM so GPU VRAM stays unchanged. Set ENABLE_VISION=0 below or use -NoVision for text-only)
 set "CTX_SIZE=131072"
 REM context window -c; 131072 = 128K ceiling on 24GB (embedded MTP head).
 REM Lower to 98304 / 65536 if VRAM is tight (160K/192K measured unusable).
@@ -59,10 +60,11 @@ set "SPEC_TYPE=draft-mtp"
 REM speculative decoding type; set empty to disable (--spec-* omitted automatically)
 
 REM ---- parse optional args (override defaults above) ----
-set "ENABLE_VISION=0"
+set "ENABLE_VISION=1"
 :parse_args
 if "%~1"=="" goto args_done
-if /i "%~1"=="-Vision" ( set "ENABLE_VISION=1" & shift & goto parse_args )
+if /i "%~1"=="-Vision"  ( set "ENABLE_VISION=1" & shift & goto parse_args )
+if /i "%~1"=="-NoVision" ( set "ENABLE_VISION=0" & shift & goto parse_args )
 if /i "%~1"=="-Ctx"     ( set "CTX_SIZE=%~2"    & shift & shift & goto parse_args )
 if /i "%~1"=="-Port"      ( set "PORT=%~2"         & shift & shift & goto parse_args )
 if /i "%~1"=="-ApiKey"     ( set "API_KEY=%~2"      & shift & shift & goto parse_args )
@@ -112,18 +114,18 @@ goto auth_done
 if "%HOST%"=="0.0.0.0" echo [WARN] HOST=0.0.0.0 with no api-key -- anyone on the LAN can call the model. Set API_KEY or API_KEY_FILE above.
 :auth_done
 
-REM ---- vision: append --mmproj only when ENABLE_VISION=1 ----
+REM ---- vision: append --mmproj --no-mmproj-offload when ENABLE_VISION=1 ----
+REM (--no-mmproj-offload keeps the projector on CPU so GPU VRAM stays unchanged)
 if "%ENABLE_VISION%"=="0" goto no_vision
 if exist "%MMPROJ_FILE%" goto vision_ok
-echo [ERROR] Vision enabled but projector not found: %MMPROJ_FILE% (use a *-VL model and its matching projector)
-pause
-exit /b 1
+echo [WARN] %MMPROJ_FILE% not found - starting WITHOUT vision. Run deploy_and_run.bat to download it.
+goto no_vision
 :vision_ok
-set "ARGS=%ARGS% --mmproj %MMPROJ_FILE%"
+set "ARGS=%ARGS% --mmproj %MMPROJ_FILE% --no-mmproj-offload"
 echo [START] llama-server (vision ON)  http://%HOST%:%PORT%
 goto launch
 :no_vision
-echo [START] llama-server  http://%HOST%:%PORT%
+echo [START] llama-server (vision OFF)  http://%HOST%:%PORT%
 :launch
 
 echo [exe  ] %SERVER_EXE%

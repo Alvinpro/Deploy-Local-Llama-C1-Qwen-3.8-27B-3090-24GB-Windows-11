@@ -111,15 +111,28 @@ Empirically confirmed: llama-server can use `--spec-type draft-mtp` **without** 
 
 ---
 
-## 6.3 Result 7: 160K / 192K Context Benchmarks (embedded head + q8_0 KV, 24GB)
+## 6.3 Result 7: 128K / 160K / 192K Context Benchmarks — CORRECTED CLEAN RE-RUN (embedded head + q8_0 KV, 24GB)
+
+> Correction: the earlier readings (128K ≈ 11 tok/s, 192K crash) were **polluted by a concurrently running llama-server** on the same GPU. All numbers below are clean re-runs with the machine idle.
 
 | Context | loads/listens | idle VRAM (MiB) | actual run | conclusion |
 |---------|---------------|-----------------|------------|------------|
-| 128K (previously measured) | ✅ | ~23,300 | generates, ~700MB headroom | ⚠️ at the limit, high risk in practice |
-| **160K** | ✅ | 24,186 | generates but prefill degrades (138 vs normal ~1060 tok/s), decode 36.6 | ❌ only ~390MB headroom, OOM in practice is guaranteed |
-| **192K** | ✅ (loads + listens) | ~24,200 | crashes/hangs mid-prefill | ❌ unusable |
+| 128K (default) | ✅ | 23,861 | **decode 44.6 tok/s — full speed**, ~715MB headroom | ✅ usable; keep as default |
+| 160K | ✅ | 24,223 | decode 22.2 tok/s (half speed), prefill degraded | ⚠️ works but 2× slower |
+| 192K | ✅ | 24,184 | decode 8.3 tok/s (1/5 speed), no crash | ❌ too slow for real work |
 
-**Conclusion: 128K is the practical ceiling for the 24GB + q8_0 KV + embedded head configuration.** 160K can load, but zero VRAM headroom collapses prefill performance by 7× and invites OOM at any moment; 192K crashes on the first request after loading. If a larger context is mandatory, the only way is a lower KV quantization tier (q4_0 would theoretically cut 192K's KV from ~25GB to ~12.5GB), at the cost of quality.
+**Conclusion: 128K + q8_0 KV runs at full speed (44.6 tok/s) when the machine is idle — no need to lower it back to 96K.** 160K halves the speed (22.2), 192K drops to 1/5 (8.3); both load and generate but are impractical for daily use. The degradation beyond 128K is a memory-pressure performance cliff, not a crash.
+
+---
+
+## 6.4 Result 8: Vision Benchmark (mmproj-F16 kept on CPU, `--no-mmproj-offload`)
+
+- **Vision works**: the same main model `Qwen3.8-27B-UD-Q4_K_XL.gguf` + `mmproj-F16.gguf` (927.6 MB) supports images — **no model swap needed**. A 4-color quadrant test image (TL red / TR green / BL blue / BR yellow) was recognized **100% correctly**.
+- **mmproj on CPU is effective**: with `--no-mmproj-offload`, GPU VRAM is identical to text-only (24,143 MiB @ 128K), and image requests add no extra VRAM (24,126 MiB) — projector weights and compute stay in CPU memory.
+- **MTP spec decoding works under vision requests**: log `draft acceptance = 0.679 (57/84), mean len = 3.04`.
+- The vision request's earlier 10.2 tok/s reading was also polluted by the concurrent service; on a clean machine vision at 128K decodes at full speed.
+- **F16 vs BF16 (mmproj) recognition comparison (2026-08-20)**: 3 test images — ① number "327" + 4-color quadrants, ② 3×3 grid of 9 distinct colors, ③ very low-contrast small digit "581" (gray 200 on white, 5×7 font) — both variants produced **byte-identical answers, all correct** (OCR included). F16 (10-bit mantissa) vs BF16 (7-bit mantissa) is indistinguishable for vision encoding in practice; BF16 is the mainstream deployment format. File sizes are nearly equal (927.6 vs 931.1 MB) — keep the default F16, either works.
+- Conclusion: vision = same main model + `mmproj-F16.gguf` (0.93 GB) + `--mmproj --no-mmproj-offload`; keep 128K context.
 
 ---
 
@@ -137,25 +150,23 @@ Measured embedded head on short context: 47.5 tok/s, already near the ceiling (~
 
 ## 8. Conclusions and Recommendations
 
-### 8.1 Recommended Configuration (current `start_simple.bat` already updated to match)
+### 8.1 Recommended Configuration (all three launch scripts already match)
 
 ```bat
-llama-server -m Qwen3.8-27B-UD-Q4_K_XL.gguf --alias qwen3.8-27B -c 98304
+llama-server -m Qwen3.8-27B-UD-Q4_K_XL.gguf --alias qwen3.8-27B -c 131072
   --parallel 1 -ngl 99 -fa on --cache-type-k q8_0 --cache-type-v q8_0
   --spec-type draft-mtp
   --host 0.0.0.0 --port 8080 --api-key-file api_keys.txt
 ```
 
-Key points: **embedded MTP head (without `--spec-draft-model`)** + KV q8_0 + **all speculative decoding parameters left at defaults** (`--spec-draft-n-max` defaults to 3, `--spec-draft-p-min` defaults to 0; explicitly setting them gains nothing, measured) + **no ngram-simple stacking** (no benefit, measured) = the optimal speed/VRAM/quality balance.
-
-> Note: `start_server.bat` still keeps the separate MTP file approach (`--spec-draft-model mtp-...`), coexisting with the recommended embedded head approach; to keep them consistent, simply remove `--spec-draft-model mtp-Qwen3.8-27B-Q4_0.gguf` from the startup arguments.
+Key points: **embedded MTP head (without `--spec-draft-model`)** + KV q8_0 + **128K context (measured full speed, 44.6 tok/s, on an idle machine)** + **all speculative decoding parameters left at defaults** (`--spec-draft-n-max` defaults to 3, `--spec-draft-p-min` defaults to 0; explicitly setting them gains nothing, measured) + **no ngram-simple stacking** (no benefit, measured) = the optimal speed/VRAM/quality balance. `start_server.bat` / `qwen38_deploy.ps1` / `start_simple.bat` are all consistent with this.
 
 ### 8.2 Best Use of the 0.9GB of Saved VRAM
 
 | Use case | Effect |
 |----------|--------|
 | **OOM safety margin** | 96K context drops from ~23.6GB to ~22.9GB, further from the OOM threshold |
-| **128K context** | With the embedded head, 128K leaves ~700MB headroom (only ~377MB with the separate file), even safer with q4 KV; resolves the dsh 106K-token historical request rejections |
+| **128K context** | With the embedded head, 128K runs at **full speed (44.6 tok/s)** with ~715MB headroom (verified on an idle machine); resolves the dsh 106K-token historical request rejections; keep 128K as the default |
 
 ### 8.3 The Real Speed Levers (ranked by payoff)
 
@@ -168,7 +179,7 @@ Key points: **embedded MTP head (without `--spec-draft-model`)** + KV q8_0 + **a
 - ❌ `--spec-draft-n-max > 3`: measured slower (47.5 → 35.7)
 - ❌ `--spec-draft-p-min > 0`: measured slower (47.1 → 41.1) and changes the output trajectory; keep the default 0
 - ❌ Stacking `ngram-simple`: no benefit measured with MTP enabled; prose is even ~7% slower (see 6.2)
-- ❌ `-c > 128K`: 160K/192K measured unusable (loading exhausts VRAM, running always crashes, see 6.3); 128K is the ceiling for 24GB + q8_0 KV
+- ❌ `-c > 128K`: 160K/192K load and generate but run at 1/2 and 1/5 speed (memory-pressure cliff, see 6.3); not recommended for daily use — 128K is the practical sweet spot for 24GB + q8_0 KV
 - ❌ Larger batch size `-b`: no effect
 - ❌ Separate MTP file for a 5% speed gain: uses 0.9GB more VRAM, raises OOM risk in 96K scenarios; not worth it
 
@@ -304,15 +315,28 @@ Qwen3.8-27B 的 MTP（多 token 预测）草稿头有**两种来源**：
 
 ---
 
-## 6.3 结果七：160K / 192K 上下文实测（内嵌头 + q8_0 KV，24GB）
+## 6.3 结果七：128K / 160K / 192K 上下文实测——修正版（干净环境重跑，内嵌头 + q8_0 KV，24GB）
+
+> 更正说明：早前读数（128K ≈ 11 tok/s、192K 崩溃）是**同一 GPU 上并发运行了另一个 llama 服务**污染所致。下表均为机器空闲时的干净重跑数据。
 
 | 上下文 | 加载/监听 | 空闲显存 (MiB) | 实际运行 | 结论 |
 |--------|-----------|---------------|----------|------|
-| 128K（此前实测） | ✅ | ~23,300 | 可生成，余量 ~700MB | ⚠️ 极限，实战高风险 |
-| **160K** | ✅ | 24,186 | 可生成但 prefill 劣化（138 vs 正常 ~1060 tok/s），decode 36.6 | ❌ 余量仅 ~390MB，实战必 OOM |
-| **192K** | ✅（加载+监听） | ~24,200 | prefill 中途进程崩溃/挂死 | ❌ 不可用 |
+| 128K（默认） | ✅ | 23,861 | **decode 44.6 tok/s —— 满速**，余量 ~715MB | ✅ 可用；保持默认 |
+| 160K | ✅ | 24,223 | decode 22.2 tok/s（半速），prefill 劣化 | ⚠️ 能跑但慢 2 倍 |
+| 192K | ✅ | 24,184 | decode 8.3 tok/s（1/5 速），不再崩溃 | ❌ 太慢，不适合日常 |
 
-**结论：128K 是 24GB + q8_0 KV + 内嵌头配置的实际天花板。** 160K 虽能加载，但显存余量归零导致 prefill 性能暴跌 7 倍以上、随时 OOM；192K 加载后首轮请求即崩溃。若必须上更大上下文，唯一出路是 KV 量化降档（q4_0 理论可让 192K 的 KV 从 ~25GB 降到 ~12.5GB），但需接受质量折损。
+**结论：128K + q8_0 KV 在机器空闲时满速运行（44.6 tok/s），无需降回 96K。** 160K 半速（22.2）、192K 降至 1/5（8.3），虽都能加载生成但不实用。128K 之外的速度退化是内存压力性能悬崖，不是崩溃。
+
+---
+
+## 6.4 结果八：视觉实测（mmproj-F16 留 CPU，`--no-mmproj-offload`）
+
+- **视觉功能正常**：同一主模型 `Qwen3.8-27B-UD-Q4_K_XL.gguf` + `mmproj-F16.gguf`（927.6MB）即支持看图，**无需换模型**。四色象限测试图（左上红/右上绿/左下蓝/右下黄）识别**全部正确**。
+- **mmproj 留 CPU 生效**：`--no-mmproj-offload` 下 GPU 显存与纯文本一致（128K 时 24,143 MiB），图像请求时无额外显存占用（24,126 MiB）——投影器权重与计算都在 CPU 内存。
+- **MTP 推测解码在视觉请求下正常工作**：日志 `draft acceptance = 0.679 (57/84), mean len = 3.04`。
+- 视觉请求早前 10.2 tok/s 读数同样受并发服务污染；干净环境下 128K 视觉解码为满速。
+- **F16 vs BF16（mmproj）识别对比（2026-08-20）**：3 张测试图——① 数字"327"+四色象限、② 3×3 九宫格 9 色、③ 低对比度小字"581"（灰 200 白底、5×7 点阵）——两种变体回答**逐字一致且全部正确**（含 OCR）。F16（10 位尾数）vs BF16（7 位尾数）对视觉编码在实际识别中无差别；BF16 是主流部署格式。文件大小几乎相同（927.6 vs 931.1 MB）——保留默认 F16 即可，两者皆可。
+- 结论：视觉方案 = 同一主模型 + `mmproj-F16.gguf`（0.93GB）+ `--mmproj --no-mmproj-offload`；保持 128K 上下文。
 
 ---
 
@@ -330,25 +354,23 @@ decode 每生成一个 token 都要把全部权重读一遍：
 
 ## 8. 结论与建议
 
-### 8.1 推荐配置（当前 `start_simple.bat` 已按此更新）
+### 8.1 推荐配置（三个启动脚本已全部一致）
 
 ```bat
-llama-server -m Qwen3.8-27B-UD-Q4_K_XL.gguf --alias qwen3.8-27B -c 98304
+llama-server -m Qwen3.8-27B-UD-Q4_K_XL.gguf --alias qwen3.8-27B -c 131072
   --parallel 1 -ngl 99 -fa on --cache-type-k q8_0 --cache-type-v q8_0
   --spec-type draft-mtp
   --host 0.0.0.0 --port 8080 --api-key-file api_keys.txt
 ```
 
-要点：**内嵌 MTP 头（不带 `--spec-draft-model`）** + KV q8_0 + **推测解码参数全部用默认**（`--spec-draft-n-max` 默认即 3、`--spec-draft-p-min` 默认即 0，实测显式指定无增益）+ **不叠加 ngram-simple**（实测无收益）= 速度/显存/质量最优平衡。
-
-> 注：`start_server.bat` 仍保留独立 MTP 文件方案（`--spec-draft-model mtp-...`），与本文推荐的内嵌头方案并存；如需保持一致，将 `--spec-draft-model mtp-Qwen3.8-27B-Q4_0.gguf` 从启动参数中移除即可。
+要点：**内嵌 MTP 头（不带 `--spec-draft-model`）** + KV q8_0 + **128K 上下文（干净环境实测满速 44.6 tok/s）** + **推测解码参数全部用默认**（`--spec-draft-n-max` 默认即 3、`--spec-draft-p-min` 默认即 0，实测显式指定无增益）+ **不叠加 ngram-simple**（实测无收益）= 速度/显存/质量最优平衡。`start_server.bat` / `qwen38_deploy.ps1` / `start_simple.bat` 均已与此一致。
 
 ### 8.2 省下 0.9GB 显存的最佳用途
 
 | 用途 | 效果 |
 |------|------|
 | **OOM 安全垫** | 96K 上下文从 ~23.6GB 降到 ~22.9GB，远离 OOM 临界 |
-| **上 128K 上下文** | 内嵌头后 128K 余量 ~700MB（独立文件时仅 ~377MB），配 q4 KV 更稳；解决 dsh 106K-token 历史请求被拒问题 |
+| **上 128K 上下文** | 内嵌头下 128K **满速运行（44.6 tok/s）**、余量 ~715MB（机器空闲时实测）；解决 dsh 106K-token 历史请求被拒问题；保持 128K 为默认 |
 
 ### 8.3 真正的提速杠杆（按收益排序）
 
@@ -361,7 +383,7 @@ llama-server -m Qwen3.8-27B-UD-Q4_K_XL.gguf --alias qwen3.8-27B -c 98304
 - ❌ `--spec-draft-n-max > 3`：实测变慢（47.5 → 35.7）
 - ❌ `--spec-draft-p-min > 0`：实测更慢（47.1 → 41.1）且改变输出轨迹，保持默认 0
 - ❌ 叠加 `ngram-simple`：MTP 开启时实测无收益，散文还拖慢 ~7%（见 6.2）
-- ❌ `-c > 128K`：160K/192K 实测不可用（加载即耗尽显存，运行必崩，见 6.3）；128K 是 24GB + q8_0 KV 天花板
+- ❌ `-c > 128K`：160K/192K 能加载生成但只有 1/2、1/5 速度（内存压力悬崖，见 6.3），不适合日常；128K 是 24GB + q8_0 KV 的实际甜点
 - ❌ 加大批大小 `-b`：无效果
 - ❌ 独立 MTP 文件追 5% 速度：多占 0.9GB 显存，96K 场景下 OOM 风险上升，不值
 
