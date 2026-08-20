@@ -257,7 +257,7 @@ After enabling, it auto-downloads the vision projector file `mmproj-F16.gguf` an
 
 ---
 
-## Network / Proxy (GFW environment) / 网络 / 代理（GFW 环境）
+## Network / Proxy / 网络 / 代理
 
 The script has built-in proxy support, defaulting to `http://127.0.0.1:10808`:
 
@@ -277,9 +277,9 @@ To change or disable it, edit `$PROXY` in `qwen38_deploy.ps1`:
 $PROXY = "http://127.0.0.1:10808"   # set to "" to disable / 设为 "" 可禁用
 ```
 
-GitHub CDN may be slow/intermittent in China; the script uses `curl -C -` for resumable download — just re-run if interrupted.
+GitHub CDN may be slow/intermittent; the script uses `curl -C -` for resumable download — just re-run if interrupted.
 
-GitHub CDN 国内可能慢/断，脚本用 `curl -C -` 支持断点续传，断了重跑即可。
+GitHub CDN 可能慢/断，脚本用 `curl -C -` 支持断点续传，断了重跑即可。
 
 ---
 
