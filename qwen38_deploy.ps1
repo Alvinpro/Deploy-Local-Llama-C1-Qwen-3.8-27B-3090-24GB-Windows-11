@@ -1,4 +1,4 @@
-﻿# qwen38_deploy.ps1
+# qwen38_deploy.ps1
 # One-click deploy Qwen3.8-27B (Q4) on a single RTX 3090 / 24GB GPU, Windows.
 # Downloads the latest llama.cpp CUDA build + GGUF model + MTP draft head, then launches llama-server.
 # Optional vision/multimodal support via -Vision (see $ENABLE_VISION below).
@@ -13,7 +13,7 @@ Set-Location $WorkDir
 # ---- tunables (edit if needed) ----
 $MODEL_REPO = "unsloth/Qwen3.8-27B-GGUF"
 $MODEL_FILE = "Qwen3.8-27B-UD-Q4_K_XL.gguf"   # ~17.6 GB, fits 24 GB VRAM with room for KV cache
-$MODEL_ALIAS = "qwen3.8-27B"                     # short name shown in /v1/models; clients fill this
+$MODEL_ALIAS = "qwen3.8-27b"                     # short name shown in /v1/models; clients fill this
 $MTP_REPO   = "ggml-org/Qwen3.8-27B-GGUF"
 $MTP_FILE   = "mtp-Qwen3.8-27B-Q4_0.gguf"       # built-in MTP head for speculative decoding
 $CTX_SIZE   = 98304                              # 96K safe sweet spot on 24GB; raise to 65536/98304 only if VRAM allows

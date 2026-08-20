@@ -20,7 +20,7 @@ REM ===========================================================================
 REM ---- tunables (edit here, nothing below needs changing) ----
 set "MODEL_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf"
 REM main model file
-set "MODEL_ALIAS=qwen3.8-27B"
+set "MODEL_ALIAS=qwen3.8-27b"
 REM model display name (--alias); clients fill this short name
 set "MTP_FILE=mtp-Qwen3.8-27B-Q4_0.gguf"
 REM MTP speculative-decoding draft head

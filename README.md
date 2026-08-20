@@ -106,7 +106,7 @@ The actual server command line (`reasoning_effort` is passed via an environment 
 ```
 llama.cpp\llama-server.exe
   -m Qwen3.8-27B-UD-Q4_K_XL.gguf
-  --alias qwen3.8-27B
+  --alias qwen3.8-27b
   -c 98304
   --parallel 1
   -ngl 99
@@ -126,7 +126,7 @@ LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"high"}
 | Param / 参数 | Value / 值 | Purpose / 作用 |
 |------|-----|------|
 | `-m` | `Qwen3.8-27B-UD-Q4_K_XL.gguf` | main model (27B, Q4_K_XL, ~17.6GB) / 主模型（27B，Q4_K_XL，~17.6GB） |
-| `--alias` | `qwen3.8-27B` | model short name (clients use this, not the long filename) / 模型短名（客户端填这个，不是长文件名） |
+| `--alias` | `qwen3.8-27b` | model short name (clients use this, not the long filename) / 模型短名（客户端填这个，不是长文件名） |
 | `-c` | `98304` | context window upper bound 96K (loadable on 24GB in practice, tight headroom; independent of `reasoning_effort` tier) / 上下文窗口上限 96K（24GB 实测可加载，余量偏紧；与 `reasoning_effort` 档位无关） |
 | `--parallel` | `1` | single concurrent session (VRAM only fits one) / 单并发（显存只够一个会话） |
 | `-ngl` | `99` | offload all layers to GPU (avoid falling back to CPU) / 全量层 offload 到 GPU（避免掉回 CPU） |
@@ -309,7 +309,7 @@ curl http://127.0.0.1:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-xxxxxxxx" \
   -d '{
-    "model": "qwen3.8-27B",
+    "model": "qwen3.8-27b",
     "messages": [{"role": "user", "content": "用一句话介绍你自己"}],
     "max_tokens": 200,
     "temperature": 0.7
@@ -395,7 +395,7 @@ On the host, open PowerShell / cmd, run `ipconfig`, find "IPv4 Address", e.g. `1
 |--------|--------|------|
 | Base URL / API 地址 | `http://192.168.1.100:8080/v1` | service address, must end with `/v1` / 服务地址，结尾必须带 `/v1` |
 | API Key | any one from `api_keys.txt` (like `sk-...`) / `api_keys.txt` 里任意一个（形如 `sk-...`） | server validates it; wrong/empty returns 401 / 服务端会校验；填错 / 不填返回 401 |
-| Model name / Model 名称 | `qwen3.8-27B` | short name (set by script `--alias`), not the long filename / 短名（脚本 `--alias` 指定），不再是长文件名 |
+| Model name / Model 名称 | `qwen3.8-27b` | short name (set by script `--alias`), not the long filename / 短名（脚本 `--alias` 指定），不再是长文件名 |
 | Context Window | `98304` (matches server `-c`) / `98304`（与服务端 `-c` 一致） | total context budget (input + output). Fill the server's actual `-c` (see `$CTX_SIZE` in `start_server.bat`); **if left blank, clients like DSH won't proactively compact history**, and over-long requests get rejected by the server / 模型总上下文预算（输入 + 输出）。填服务端实际的 `-c` 值（见 `start_server.bat` 的 `$CTX_SIZE`）；**不填/留空时，DSH 等客户端不会主动压缩历史**，请求堆太长会被服务端直接拒绝 |
 | Input / Output tokens | Output `16384`; Input = Context Window − output reserve (e.g. `81920`) / Output `16384`；Input = Context Window − 输出预留（如 `81920`） | Output is the per-reply cap (`max_tokens`, reasoning chain also counts as output); worst case "input + output" must be less than server `-c`, otherwise rejected for overflow / Output 是单次回复上限（`max_tokens`，思考链也计入输出）；最坏情况「输入 + 输出」必须小于服务端 `-c`，否则溢出被拒 |
 
@@ -417,7 +417,7 @@ Save and you can chat. A response with `reasoning_content` means the reasoning c
       api_key="sk-xxxxxxxx",  # any key from api_keys.txt / api_keys.txt 里的任意一个 key
   )
   reply = client.chat.completions.create(
-      model="qwen3.8-27B",
+      model="qwen3.8-27b",
       messages=[{"role": "user", "content": "你好"}],
   )
   print(reply.choices[0].message.content)
@@ -445,8 +445,8 @@ local-llama:
   api: openai-completions
   baseURL: "http://<host IP>:8080/v1"
   models:
-    - id: qwen3.8-27B
-      name: qwen3.8-27B-llama
+    - id: qwen3.8-27b
+      name: qwen3.8-27b-llama
       contextWindow: 98304   # must be ≤ server -c; leave ~10~15% headroom / 必须 ≤ 服务端 -c，建议留 10~15% 余量
       maxTokens: 16384       # per-reply output cap (incl. reasoning chain), consumes the window; 16384 tested on this box / 单次输出上限（含思考链），会占用窗口；16384 已本机实测可用
 ```
@@ -476,7 +476,7 @@ local-llama:
         retainRatio: 0.12
         maxOverflowRetries: 3
       - provider: local-llama
-        model: qwen3.8-27B
+        model: qwen3.8-27b
         thresholdRatio: 0.7
         retainRatio: 0.12
         maxOverflowRetries: 3
